@@ -9,8 +9,8 @@
 #' @export
 make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
   stopifnot(
-    ".fn must be one of c(`cfx`, `nfx`, `tau`, `dfx`, `dau`)" =
-      .fn %in% c("cfx", "nfx", "tau", "dfx", "dau")
+    ".fn must be one of c('num', 'hhi', `cfx`, `nfx`, `tau`, `dfx`, `dau`)" =
+      .fn %in% c("num", "hhi", "cfx", "nfx", "tau", "dfx", "dau")
   )
   attr_not_null <- ! is.null( attr(.data, "div_lookup") )
 
@@ -18,7 +18,7 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
 
   lup <- attr(.data, "div_lookup") %>%
     filter(
-      variable == .var,
+      variable == as_label(.var),
       id == .id
     ) %>%
     select(num, hhi) %>%
@@ -27,6 +27,12 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
   .num <- pluck(.data, lup[["num"]])
   .hhi <- pluck(.data, lup[["hhi"]])
 
+  if (.fn == "num") {
+    return(.num)
+  }
+  if (.fn == "hhi") {
+    return(.hhi)
+  }
   if (.fn == "cfx") {
     out <- make_cfx(num = .num, hhi = .hhi)
   }
@@ -42,32 +48,47 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
   if (.fn == "dau") {
     out <- 1 - make_tau(num = .num, hhi = .hhi)
   }
-  attr(out, "var_name") <- str_c(.var, "_", .fn)
+  attr(out, "var_name") <- str_c( as_label(.var), "_", .fn )
 
   return(out)
 }
 
+
+#' @export
+num <- function(.var, ...) {
+  .var = enquo( .var )
+  make_div_fn(.fn = "num", .var = as_label(.var) )
+}
+
+
+
+#' @export
+hhi <- function(.var, ...) {
+  make_div_fn(.fn = "hhi", .var = as_label(.var))
+}
+
 #' @export
 cfx <- function(.var, ...) {
-  make_div_fn(.fn = "cfx", .var = .var)
+  make_div_fn(.fn = "cfx", .var = as_label(.var))
 }
 
 #' @export
 nfx <- function(.var, ...) {
-  make_div_fn(.fn = "nfx", .var = .var)
+  make_div_fn(.fn = "nfx", .var = as_label(.var))
 }
 
 #' @export
 tau <- function(.var, ...) {
-  make_div_fn(.fn = "tau", .var = .var)
+  make_div_fn(.fn = "tau", .var = as_label(.var))
 }
 
 #' @export
 dfx <- function(.var, ...) {
-  make_div_fn(.fn = "dfx", .var = .var)
+  make_div_fn(.fn = "dfx", .var = as_label(.var))
 }
 
 #' @export
 dau <- function(.var, ...) {
-  make_div_fn(.fn = "dau", .var = .var)
+  make_div_fn(.fn = "dau", .var = as_label(.var))
 }
+

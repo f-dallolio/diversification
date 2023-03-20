@@ -46,7 +46,7 @@ make_cfx <- function(num, hhi) {
     left_join(new, by = "id") %>%
     mutate(
       across(
-        verything(),
+        everything(),
         ~ if_else(is.na(.x), 0, .x)
       )
     ) %>%

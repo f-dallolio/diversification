@@ -31,7 +31,7 @@ make_tau <- function(num, hhi) {
 
 #' @export
 make_cfx <- function(num, hhi) {
-  old <- tibble(id = seq_alongg(num), num, hhi)
+  old <- tibble(id = seq_along(num), num, hhi)
   new <- old %>%
     filter(num > 1) %>%
     mutate(

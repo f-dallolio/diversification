@@ -9,7 +9,7 @@
 #' @export
 make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
 
-  .var = enquo( .var )
+  # .var = enquo( .var )
 
   stopifnot(
     ".fn must be one of c('num', 'hhi', `cfx`, `nfx`, `tau`, `dfx`, `dau`)" =
@@ -21,7 +21,7 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
 
   lup <- attr(.data, "div_lookup") %>%
     filter(
-      variable == as_label(.var),
+      variable == (.var),
       id == .id
     ) %>%
     select(num, hhi) %>%
@@ -51,7 +51,7 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
   if (.fn == "dau") {
     out <- 1 - make_tau(num = .num, hhi = .hhi)
   }
-  attr(out, "var_name") <- str_c( as_label(.var), "_", .fn )
+  attr(out, "var_name") <- str_c( (.var), "_", .fn )
 
   return(out)
 }

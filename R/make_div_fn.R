@@ -12,6 +12,9 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
     ".fn must be one of c(`cfx`, `nfx`, `tau`, `dfx`, `dau`)" =
       .fn %in% c("cfx", "nfx", "tau", "dfx", "dau")
   )
+  attr_not_null <- ! is.null( attr(.data, "div_lookup") )
+
+  stopifnot("attr(.data, 'div_lookup') must be different than NULL" = attr_not_null)
 
   lup <- attr(.data, "div_lookup") %>%
     filter(

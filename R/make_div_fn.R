@@ -8,6 +8,9 @@
 #' @return a numeric vector.
 #' @export
 make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
+
+  .var = enquo( .var )
+
   stopifnot(
     ".fn must be one of c('num', 'hhi', `cfx`, `nfx`, `tau`, `dfx`, `dau`)" =
       .fn %in% c("num", "hhi", "cfx", "nfx", "tau", "dfx", "dau")
@@ -64,31 +67,37 @@ num <- function(.var, ...) {
 
 #' @export
 hhi <- function(.var, ...) {
+  .var = enquo( .var )
   make_div_fn(.fn = "hhi", .var = as_label(.var))
 }
 
 #' @export
 cfx <- function(.var, ...) {
+  .var = enquo( .var )
   make_div_fn(.fn = "cfx", .var = as_label(.var))
 }
 
 #' @export
 nfx <- function(.var, ...) {
+  .var = enquo( .var )
   make_div_fn(.fn = "nfx", .var = as_label(.var))
 }
 
 #' @export
 tau <- function(.var, ...) {
+  .var = enquo( .var )
   make_div_fn(.fn = "tau", .var = as_label(.var))
 }
 
 #' @export
 dfx <- function(.var, ...) {
+  .var = enquo( .var )
   make_div_fn(.fn = "dfx", .var = as_label(.var))
 }
 
 #' @export
 dau <- function(.var, ...) {
+  .var = enquo( .var )
   make_div_fn(.fn = "dau", .var = as_label(.var))
 }
 

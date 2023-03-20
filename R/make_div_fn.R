@@ -47,25 +47,25 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
 
 #' @export
 cfx <- function(.var, ...) {
-  make_div_fn(.data, .fn = "cfx", .var = .var)
+  make_div_fn(.fn = "cfx", .var = .var)
 }
 
 #' @export
 nfx <- function(.var, ...) {
-  make_div_fn(.data, .fn = "nfx", .var = .var)
+  make_div_fn(.fn = "nfx", .var = .var)
 }
 
 #' @export
 tau <- function(.var, ...) {
-  make_div_fn(.data, .fn = "tau", .var = .var)
+  make_div_fn(.fn = "tau", .var = .var)
 }
 
 #' @export
 dfx <- function(.var, ...) {
-  make_div_fn(.data, .fn = "dfx", .var = .var)
+  make_div_fn(.fn = "dfx", .var = .var)
 }
 
 #' @export
 dau <- function(.var, ...) {
-  make_div_fn(.data, .fn = "dau", .var = .var)
+  make_div_fn(.fn = "dau", .var = .var)
 }

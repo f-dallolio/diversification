@@ -24,3 +24,6 @@ Imports:
     fdutils
 URL: https://github.com/f-dallolio/diversification
 BugReports: https://github.com/f-dallolio/diversification/issues
+Depends: 
+    R (>= 2.10)
+LazyData: true

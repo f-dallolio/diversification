@@ -27,6 +27,12 @@ make_div_fn <- function(.data = panel_df, .fn, .var, .id = 1) {
   .num <- pluck(.data, lup[["num"]])
   .hhi <- pluck(.data, lup[["hhi"]])
 
+  if (.fn == "num") {
+    return(.num)
+  }
+  if (.fn == "hhi") {
+    return(.hhi)
+  }
   if (.fn == "cfx") {
     out <- make_cfx(num = .num, hhi = .hhi)
   }

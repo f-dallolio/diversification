@@ -4,7 +4,7 @@
 \alias{div_lookup}
 \title{Lookup table for concentration/diversification variables}
 \usage{
-div_lookup(x, nms = c("_num", "_hhi", "_sd"))
+div_lookup(x, nms = c("_num", "_hhi"))
 }
 \arguments{
 \item{x}{tibble with the data}

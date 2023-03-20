@@ -4,7 +4,7 @@
 \alias{make_div_fn}
 \title{Create concentration/diversification measures}
 \usage{
-make_div_fn(.data, .fn, .var, .id = 1)
+make_div_fn(.data = panel_df, .fn, .var, .id = 1)
 }
 \arguments{
 \item{.data}{the data frame with the data.}

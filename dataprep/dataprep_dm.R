@@ -2,7 +2,6 @@ library(tidyverse)
 library(dm)
 
 load("data/datalist.rda")
-
 panel_table <- datalist$panel_table
 time_table <- datalist$time_table
 dv_df <- datalist$dv_df

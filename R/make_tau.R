@@ -6,6 +6,7 @@
 #' @return a numeric vector.
 #' @export
 make_tau <- function(num, hhi) {
+  hhi = hhi * (num > 0)
   old <- tibble(id = seq_along(num), num, hhi)
   new <- old %>%
     filter(num > 1) %>%
@@ -31,6 +32,7 @@ make_tau <- function(num, hhi) {
 
 #' @export
 make_cfx <- function(num, hhi) {
+  hhi = hhi * (num > 0)
   old <- tibble(id = seq_along(num), num, hhi)
   new <- old %>%
     filter(num > 1) %>%
@@ -56,6 +58,7 @@ make_cfx <- function(num, hhi) {
 
 #' @export
 make_nfx <- function(num, hhi) {
+  hhi = hhi * (num > 0)
   old <- tibble(id = seq_along(num), num, hhi)
   new <- old %>%
     filter(num > 1) %>%

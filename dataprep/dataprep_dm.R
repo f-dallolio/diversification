@@ -14,6 +14,7 @@ time_table <- mydata %>%
   select(t, weeknum, year) %>%
   distinct() %>%
   mutate(yearweek = make_yearweek(year = year, week = weeknum),
+         yearweek = as.ordered(yearweek),
          month = month(yearweek, label = TRUE),
          quarter = as.ordered(str_c("Q", quarter(yearweek))),
          year = as.ordered(str_c("Y", year)),

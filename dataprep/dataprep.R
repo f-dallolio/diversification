@@ -37,34 +37,34 @@ panel_df <- raw_df %>%
     brandawareness = aided,
     attention = attention,
 
-    buzz_0 = buzz,
+    buzz0 = buzz,
     buzz = minmax(buzz, min = -100, max = 100, to_100 = TRUE),
 
     consideration = consider,
     currentowner = current_own,
     formerowner = former_own,
 
-    impression_0 = impression,
+    impression0 = impression,
     impression = minmax(impression, min = -100, max = 100, to_100 = TRUE),
 
-    yougovindex_0 = index,
+    yougovindex0 = index,
     yougovindex = minmax(index, min = -100, max = 100, to_100 = TRUE),
 
     intention = likelybuy,
 
-    perquality_0= quality,
+    perquality0= quality,
     perquality = minmax(quality, min = -100, max = 100, to_100 = TRUE),
 
-    recommendation_0 = recommend,
+    recommendation0 = recommend,
     recommendation = minmax(recommend, min = -100, max = 100, to_100 = TRUE),
 
-    reputation_0 = reputation,
+    reputation0 = reputation,
     reputation = minmax(reputation, min = -100, max = 100, to_100 = TRUE),
 
-    satisfaction_0 = satisfaction,
+    satisfaction0 = satisfaction,
     satisfaction = minmax(satisfaction, min = -100, max = 100, to_100 = TRUE),
 
-    pervalue_0 = value,
+    pervalue0 = value,
     pervalue = minmax(value, min = -100, max = 100, to_100 = TRUE),
 
     wordofmouth = wom,
@@ -74,37 +74,37 @@ panel_df <- raw_df %>%
     ## -- adspend in $1,000,000
     adspend = round(adspend / 1000, 2),
     ## -- advertising ON (1) or OFF (0)
-    adspend_on = as.numeric(adspend > 0),
+    adspend01 = as.numeric(adspend > 0),
 
     # --- diversification variables
     num_networks = num_unique_networks_wk,
     num_genres = num_unique_genres_wk,
     num_dayparts = num_unique_dayparts1_wk,
-    num_dayparts_2 = num_unique_dayparts2_wk,
+    num_dayparts2 = num_unique_dayparts2_wk,
     num_dayhours = num_unique_hours_wk,
     num_weekdays = num_unique_weekdays_wk,
     hhi_networks = hhi_network,
     hhi_genres = hhi_genre,
     hhi_dayparts = hhi_daypart1,
-    hhi_dayparts_2 = hhi_daypart2,
+    hhi_dayparts2 = hhi_daypart2,
     hhi_dayhours = hhi_hours_of_day,
     hhi_weekdays = hhi_days_in_week,
     ssd_networks = stdev_network_share,
     ssd_genres = stdev_genre_share,
     ssd_dayparts = stdev_daypart1_share,
-    ssd_dayparts_2 = stdev_daypart2_share,
+    ssd_dayparts2 = stdev_daypart2_share,
     ssd_dayhours = stdev_hours_of_day_share,
     ssd_weekdays = stdev_days_in_week_share,
     # --- moderators
 
     ## -- category - level
     risk = Risk1,
-    risk_2 = Risk2,
-    risk_3 = Risk3,
+    risk2 = Risk2,
+    risk3 = Risk3,
     involvement = Involvement1,
-    involvement_2 = Involvement2,
+    involvement2 = Involvement2,
     utilitarian = Util_value1,
-    utilitarian_2 = Util_value2,
+    utilitarian2 = Util_value2,
     hedonic = Hedonic_value,
     budgetshare = Share_of_budget,
     purchasefreq = Purchase_frequency
@@ -121,17 +121,17 @@ panel_df <- raw_df %>%
     ## -- category total weekly ad spending
     catspend = sum(adspend),
     ## -- weekly number of brands with advertising ON
-    catspend_on = sum(catspend > 0),
-    .after = adspend_on
+    catspend01 = sum(catspend > 0),
+    .after = adspend01
   ) %>%
   ungroup() %>%
   ## -- catetgory - level advertising clutter
   mutate(
     clutter = case_when(
       catspend == adspend ~ 0,
-      .default = ((catspend - adspend) / (catspend_on - adspend_on))
+      .default = ((catspend - adspend) / (catspend01 - adspend01))
     ),
-    .after = catspend_on
+    .after = catspend01
   )
 
 mydata <- panel_df %>%

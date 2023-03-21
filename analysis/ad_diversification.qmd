@@ -1,0 +1,30 @@
+---
+title: "Advertising Diversification"
+author: "Filippo Dall'Olio"
+format: 
+  html:
+    code-fold: false
+    code-link: true
+    page-layout: full
+  pdf: 
+    toc: true
+    number-sections: true
+execute: 
+  echo: true
+  output: false
+editor: visual
+editor_options: 
+  chunk_output_type: console
+---
+
+# Set Up
+
+```{r}
+#|  output: false
+library(tidyverse)
+library(dm)
+remotes::install_github("f-dallolio/diversification")
+library(diversification)
+
+```
+

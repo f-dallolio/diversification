@@ -22,9 +22,152 @@ editor_options:
 ```{r}
 #|  output: false
 library(tidyverse)
+library(rlang)
 library(dm)
+library(glue)
 remotes::install_github("f-dallolio/diversification")
 library(diversification)
+```
+
+# Load Data
+
+```{r}
+load("~/Documents/R_wd/diversification/data/datalist_all_keys.rda")
+load("~/Documents/R_wd/diversification/data/datalist.rda")
+
+y_df <- datalist$dv_df %>% 
+  select(id, t, adawareness, impression, consideration, intention)
+
+cx_df <- datalist$ad_df %>% 
+  select(id, t, clutter)
+
+ax_df <- datalist$ad_df %>% 
+  select(id, t, adspend)
+
+mx1_df <- datalist$brandmod_df %>% 
+  select(id, size) %>% 
+  mutate(size = (size - median(size)) / IQR(size) )
+
+mx2_df <- datalist$catmod_df %>% 
+  select(category, risk, involvement, hedonic) %>% 
+  mutate(
+    across( 
+      c(risk : hedonic),
+      ~ (.x - median(.x)) / IQR(.x)
+    )
+  )
+```
+
+# Models
+
+## Diversification: One Measure
+### Moderator: Hedonic Value
+
+```{r}
+
+```
+
+
+### Moderator: Perceived Risk
+
+```{r}
+
+```
+
+
+### Moderator: Involvement
+
+```{r}
+
+```
+
+
+### Moderator: Brand Size
+
+```{r}
+
+```
+
+
+## Diversification: Dayparts and f(Natworks, Genres)
+### Moderator: Hedonic Value
+
+```{r}
+
+```
+
+
+### Moderator: Perceived Risk
+
+```{r}
+
+```
+
+
+### Moderator: Involvement
+
+```{r}
+
+```
+
+### Moderator: Brand Size
+
+```{r}
+
+```
+
+
+## Diversification: Dayparts and Genres
+### Moderator: Hedonic Value
+
+```{r}
+
+```
+
+
+### Moderator: Perceived Risk
+
+```{r}
+
+```
+
+
+### Moderator: Involvement
+
+```{r}
+
+```
+
+
+### Moderator: Brand Size
+
+```{r}
+
+```
+
+
+## Diversification: Dayparts and Natworks
+### Moderator: Hedonic Value
+
+```{r}
+
+```
+
+
+### Moderator: Perceived Risk
+
+```{r}
+
+```
+
+### Moderator: Involvement
+```{r}
+
+```
+
+### Moderator: Brand Size
+
+```{r}
 
 ```
 

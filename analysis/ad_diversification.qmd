@@ -102,7 +102,16 @@ fmls <- c(
 ### Moderator: Hedonic Value
 
 ```{r}
-
+fmls <- c(
+  # y[1] ~ 1 + lag(y[1]) ~ 1 + cx + ax + ax:dx + ax:mx + ax:dx:mx
+  diff(y[1]) ~ 1 +  cx + ax + ax:dx + ax:mx + ax:dx:mx,
+  # y[2] ~ 1 + 1lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
+  diff(y[2]) ~ 1 + lag(y[1]) + cx + ax + ax:dx + ax: mx + ax:dx:mx,
+  # y[3] ~ 1 + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
+  diff(y[3]) ~ 1 + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax: mx + ax:dx:mx,
+  # y[4] ~ 1 + lag(y[3]) + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx 
+  diff(y[4]) ~ 1 + lag(y[3]) + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
+)
 ```
 
 

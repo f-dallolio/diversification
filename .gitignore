@@ -3,6 +3,5 @@
 .Rdata
 .httr-oauth
 .DS_Store
-dataprep/
 data-raw/
 data/

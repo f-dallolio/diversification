@@ -33,6 +33,7 @@ library(diversification)
 
 ```{r}
 load("~/Documents/R_wd/diversification/data/datalist_all_keys.rda")
+load("~/Documents/R_wd/diversification/data/datalist_only_pks.rda")
 load("~/Documents/R_wd/diversification/data/datalist.rda")
 
 y_df <- datalist$dv_df %>% 

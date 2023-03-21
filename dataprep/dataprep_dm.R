@@ -1,6 +1,20 @@
 library(tidyverse)
 library(dm)
 
+load("data/datalist.rda")
+
+panel_table <- datalist$panel_table
+time_table <- datalist$time_table
+dv_df <- datalist$dv_df
+ad_df <- datalist$ad_df
+dayhours_df <- datalist$dayhours_df
+dayparts_df <- datalist$dayparts_df
+genres_df <- datalist$genres_df
+networks_df <- datalist$networks_df
+weekdays_df <- datalist$weekdays_df
+brandmod_df <- datalist$brandmod_df
+catmod_df <- datalist$catmod_df
+
 datalist_no_key <- dm(
   panel_table = panel_table,
   time_table = time_table,
@@ -49,30 +63,37 @@ datalist_all_keys <-
   dm_add_fk(table = panel_table, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = dv_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = dv_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = dv_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = dv_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = ad_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = ad_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = ad_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = ad_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = dayhours_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = dayhours_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = dayhours_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = dayhours_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = dayparts_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = dayparts_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = dayparts_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = dayparts_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = genres_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = genres_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = genres_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = genres_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = networks_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = networks_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = networks_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = networks_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 
   dm_add_fk(table = weekdays_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = weekdays_df, columns = id, ref_table = brandmod_df, ref_columns = id) %>%
   dm_add_fk(table = weekdays_df, columns = t, ref_table = time_table, ref_columns = t) %>%
   dm_add_fk(table = weekdays_df, columns = category, ref_table = catmod_df, ref_columns = category) %>%
 

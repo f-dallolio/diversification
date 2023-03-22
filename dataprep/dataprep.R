@@ -143,17 +143,20 @@ mydata <-
     !contains(c("num_", "hhi_", "ssd_"))
   )
 
-mydata_div <- panel_df %>%
-  filter(adspend > 0) %>%
+mydata_div_temp <- panel_df %>%
+  # filter(adspend > 0) %>%
   select(id, t,
+         adspend,
          contains(c("num_", "hhi_", "ssd_"))) %>%
   pivot_longer(cols = contains(c("num_", "hhi_", "ssd_")), names_to = "variable") %>%
   mutate(
     name = str_split_i(variable, "_", 1),
     variable = str_remove_all(variable,str_c(name,"_"))
   ) %>%
-  pivot_wider() %>%
-  filter(num>1) %>%
+  pivot_wider()
+
+mydata_div_n <- mydata_div_temp %>%
+  filter(num > 1) %>%
   mutate(
     nef = 1/hhi,
     ssd = if_else(nef >= num, 0, ssd),
@@ -163,8 +166,28 @@ mydata_div <- panel_df %>%
     nfx = hhi - cfx,
     nef = if_else(nef >= num, num, nef),
   ) %>%
-  relocate(nfx, .after = nef) %>%
+  relocate(nfx, .after = nef)
+
+mydata_div_1 <- mydata_div_temp %>%
+  filter(num == 1) %>%
+  mutate(
+    nef = 1,
+    hhi = 1,
+    ssd = 0,
+    cfx = 1,
+    tau = 1,
+    nfx = 0,
+  ) %>%
+  relocate(nfx, .after = nef)
+
+mydata_div <- mydata_div_temp %>%
+  select(id, t, adspend, variable) %>%
+  left_join(mydata_div_n) %>%
+  left_join(mydata_div_1) %>%
+  # filter(adspend>0) %>%
+  mutate(across(c(num:tau), ~ if_else(is.na(.x), 0, .x) )) %>%
   split(.$variable)
+
 
 mydata_list = list(mydata, mydata_div)
 usethis::use_data(mydata_list, overwrite = TRUE)

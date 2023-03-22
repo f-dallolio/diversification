@@ -13,7 +13,7 @@ make_tau <- function(num, hhi) {
     mutate(
       nef = 1/hhi,
       cfx_num = num * hhi - 1,
-      cfx_num = case_when(nef > num ~ 0, .default = cfx_num),
+      cfx_num = case_when(nef >= num ~ 0, .default = cfx_num),
       cfx_den = num - 1,
       cfx0 = cfx_num / cfx_den,
       cfx = cfx0 * (cfx0 > 0),
@@ -41,7 +41,7 @@ make_cfx <- function(num, hhi) {
     mutate(
       nef = 1/hhi,
       cfx_num = num * hhi - 1,
-      cfx_num = case_when(nef > num ~ 0, .default = cfx_num),
+      cfx_num = case_when(nef >= num ~ 0, .default = cfx_num),
       cfx_den = num - 1,
       cfx0 = cfx_num / cfx_den,
       cfx = cfx0 * (cfx0 > 0),
@@ -69,7 +69,7 @@ make_nfx <- function(num, hhi) {
     mutate(
       nef = 1/hhi,
       cfx_num = num * hhi - 1,
-      cfx_num = case_when(nef > num ~ 0, .default = cfx_num),
+      cfx_num = case_when(nef >= num ~ 0, .default = cfx_num),
       cfx_den = num - 1,
       cfx0 = cfx_num / cfx_den,
       cfx = cfx0 * (cfx0 > 0),

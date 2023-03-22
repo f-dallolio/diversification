@@ -74,7 +74,7 @@ panel_df <- raw_df %>%
     # --- advertising variables
     adspend = total_wk_tv_ads,
     ## -- adspend in $1,000,000
-    adspend = round(adspend / 1000, 2),
+    adspend = round(adspend / 1000),
     ## -- advertising ON (1) or OFF (0)
     adspend01 = as.numeric(adspend > 0),
 
@@ -111,6 +111,7 @@ panel_df <- raw_df %>%
     budgetshare = Share_of_budget,
     purchasefreq = Purchase_frequency
   ) %>%
+  mutate(across(contains(c("num_", "hhi_", "ssd_")), ~ .x * adspend01)) %>%
   group_by(id) %>%
   mutate(
     # --- moderators
@@ -136,57 +137,35 @@ panel_df <- raw_df %>%
     .after = catspend01
   )
 
-mydata <- panel_df %>%
-  # select(id, t,
-  #        adspend,
-  #        contains(c("num_", "hhi_", "ssd_"))) %>%
-  pivot_longer(cols = contains(c("num_", "hhi_", "ssd_")), names_to = "var") %>%
+mydata <-
+  panel_df %>%
+  select(
+    !contains(c("num_", "hhi_", "ssd_"))
+  )
+
+mydata_div <- panel_df %>%
+  filter(adspend > 0) %>%
+  select(id, t,
+         contains(c("num_", "hhi_", "ssd_"))) %>%
+  pivot_longer(cols = contains(c("num_", "hhi_", "ssd_")), names_to = "variable") %>%
   mutate(
-    name = str_split_i(var, "_", 1),
-    var = str_remove_all(var,str_c(name,"_"))
+    name = str_split_i(variable, "_", 1),
+    variable = str_remove_all(variable,str_c(name,"_"))
   ) %>%
   pivot_wider() %>%
+  filter(num>1) %>%
   mutate(
-    neff = 1/hhi,
-    neff = case_when(neff > num ~ num, .default = neff),
-    hhi = case_when(neff > num ~ 1/neff, .default = hhi),
-    nfx = make_nfx(num = num, hhi = hhi),
-    cfx = make_cfx(num = num, hhi = hhi),
-    tau = make_tau(num = num, hhi = hhi),
-
-    dfx = (1 - cfx) * (num > 1),
-    dau = (1 - tau) * (num > 1),
-    .after = ssd
+    nef = 1/hhi,
+    ssd = if_else(nef >= num, 0, ssd),
+    cfx = (num * hhi - 1) / (num - 1),
+    cfx = if_else(nef >= num, 0, cfx),
+    tau = sqrt(cfx),
+    nfx = hhi - cfx,
+    nef = if_else(nef >= num, num, nef),
   ) %>%
-  mutate(
-    across(
-      contains("cfx","tau","dfx","dau"),
-      ~ case_when(neff > num ~ 0, .default = .x)
-    )
-  ) %>%
-  pivot_longer(num : dau)
+  relocate(nfx, .after = nef) %>%
+  split(.$variable)
 
-mydata %>%
-  select( id, t, var, name, value ) %>%
-  pivot_wider(names_from = "name") %>%
-  filter(num > 1) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
-  mutate(neff = force_ceiling(1/hhi)) %>%
-  filter(neff > num)
-%>%
-  slice(23) %>% pull(hhi)
-  print(n = 100)
-
-%>%
-  unite(col = "name",name, var, sep = "_" ) %>%
-  pivot_wider()
-
-# mydata <- mydata  %>%
-#   pivot_wider(names_from = "name") %>%
-#   filter(num > 1) %>%
-#   split(.$var) %>%
-#   map(~ .x %>% select(-var))
-
-mydata
-usethis::use_data(mydata, overwrite = TRUE)
+mydata_list = list(mydata, mydata_div)
+usethis::use_data(mydata_list, overwrite = TRUE)
 

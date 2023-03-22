@@ -147,9 +147,6 @@ mydata <- panel_df %>%
   ) %>%
   pivot_wider() %>%
   mutate(
-    neff = 1/hhi,
-    neff = case_when(neff > num ~ num, .default = neff),
-    hhi = case_when(neff > num ~ 1/neff, .default = hhi),
     nfx = make_nfx(num = num, hhi = hhi),
     cfx = make_cfx(num = num, hhi = hhi),
     tau = make_tau(num = num, hhi = hhi),
@@ -157,12 +154,6 @@ mydata <- panel_df %>%
     dfx = (1 - cfx) * (num > 1),
     dau = (1 - tau) * (num > 1),
     .after = ssd
-  ) %>%
-  mutate(
-    across(
-      contains("cfx","tau","dfx","dau"),
-      ~ case_when(neff > num ~ 0, .default = .x)
-    )
   ) %>%
   pivot_longer(num : dau)
 

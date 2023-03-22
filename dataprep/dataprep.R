@@ -2,8 +2,9 @@
 library(tidyverse)
 library(tsibble)
 library(skimr)
+remotes::install_github("f-dallolio/fdutils")
 library(fdutils)
-# remotes::install_github("f-dallolio/diversification")
+remotes::install_github("f-dallolio/diversification")
 library(diversification)
 library(lubridate)
 library(ggplot2)
@@ -146,15 +147,37 @@ mydata <- panel_df %>%
   ) %>%
   pivot_wider() %>%
   mutate(
+    neff = 1/hhi,
+    neff = case_when(neff > num ~ num, .default = neff),
+    hhi = case_when(neff > num ~ 1/neff, .default = hhi),
     nfx = make_nfx(num = num, hhi = hhi),
     cfx = make_cfx(num = num, hhi = hhi),
     tau = make_tau(num = num, hhi = hhi),
-    hhi = hhi  * (num > 1),
+
     dfx = (1 - cfx) * (num > 1),
     dau = (1 - tau) * (num > 1),
     .after = ssd
   ) %>%
-  pivot_longer(num : dau) %>%
+  mutate(
+    across(
+      contains("cfx","tau","dfx","dau"),
+      ~ case_when(neff > num ~ 0, .default = .x)
+    )
+  ) %>%
+  pivot_longer(num : dau)
+
+mydata %>%
+  select( id, t, var, name, value ) %>%
+  pivot_wider(names_from = "name") %>%
+  filter(num > 1) %>%
+  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
+  mutate(neff = force_ceiling(1/hhi)) %>%
+  filter(neff > num)
+%>%
+  slice(23) %>% pull(hhi)
+  print(n = 100)
+
+%>%
   unite(col = "name",name, var, sep = "_" ) %>%
   pivot_wider()
 

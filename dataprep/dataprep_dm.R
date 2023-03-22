@@ -14,11 +14,11 @@ time_table <- mydata %>%
   select(t, weeknum, year) %>%
   distinct() %>%
   mutate(yearweek = make_yearweek(year = year, week = weeknum),
-         yearweek = as.ordered(yearweek),
          month = month(yearweek, label = TRUE),
          quarter = as.ordered(str_c("Q", quarter(yearweek))),
          year = as.ordered(str_c("Y", year)),
          weeknum = as.ordered(str_c("W", numpad(weeknum))),
+         yearweek = as.ordered(yearweek),
          .after = weeknum)
 
 cat_moderators <- mydata %>%
@@ -27,12 +27,12 @@ cat_moderators <- mydata %>%
 
 dv_df <- mydata %>%
   select( id, t,
-          # category,
+          category,
           adawareness : wordofmouth)
 
 iv_df <- mydata %>%
   select( id, t,
-          # category,
+          category,
           adspend : clutter,
           contains(
             c("num_", "hhi_", "ssd_", "nfx_", "cfx_", "tau_", "dfx_", "dau_"))
@@ -59,7 +59,12 @@ dm_all_keys %>%
   dm_examine_constraints()
 dm_all_keys %>% dm_draw
 
-dm_all_keys %>% dm_flatten_to_tbl(.start = data_df)
+dm_all_keys %>%
+  dm_select(data_df, id, t, category,
+            adawareness, impression, consideration, intention,
+            adspend, clutter,
+            !contains("2") & contains(c("networks", "genres", "dayparts")) & contains(c("hhi", "nfx", "cfx", "tau"))) %>%
+  dm_select(cat_moderators, category, hedonic, risk, involvement) %>%
+  dm_flatten_to_tbl(.start = data_df, .recursive = TRUE)
 
-usethis::use_data(datalist_all_keys, overwrite = TRUE)
-usethis::use_data(datalist_only_pks, overwrite = TRUE)
+usethis::use_data(dm_all_keys, overwrite = TRUE)

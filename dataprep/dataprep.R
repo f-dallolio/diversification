@@ -163,7 +163,8 @@ mydata %>%
   filter(num > 1) %>%
   mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
   mutate(neff = force_ceiling(1/hhi)) %>%
-  filter(neff > num)
+  filter(neff > num) %>% pull(neff
+                              )
 %>%
   slice(23) %>% pull(hhi)
   print(n = 100)

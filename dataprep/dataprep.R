@@ -155,7 +155,6 @@ mydata_div <- panel_df %>%
   pivot_wider() %>%
   filter(num>1) %>%
   mutate(
-<<<<<<< HEAD
     nef = 1/hhi,
     ssd = if_else(nef >= num, 0, ssd),
     cfx = (num * hhi - 1) / (num - 1),
@@ -169,40 +168,3 @@ mydata_div <- panel_df %>%
 
 mydata_list = list(mydata, mydata_div)
 usethis::use_data(mydata_list, overwrite = TRUE)
-=======
-    nfx = make_nfx(num = num, hhi = hhi),
-    cfx = make_cfx(num = num, hhi = hhi),
-    tau = make_tau(num = num, hhi = hhi),
-
-    dfx = (1 - cfx) * (num > 1),
-    dau = (1 - tau) * (num > 1),
-    .after = ssd
-  ) %>%
-  pivot_longer(num : dau)
-
-mydata %>%
-  select( id, t, var, name, value ) %>%
-  pivot_wider(names_from = "name") %>%
-  filter(num > 1) %>%
-  mutate(across(where(is.numeric), ~ round(.x, 3))) %>%
-  mutate(neff = force_ceiling(1/hhi)) %>%
-  filter(neff > num) %>% pull(neff
-                              )
-%>%
-  slice(23) %>% pull(hhi)
-  print(n = 100)
-
-%>%
-  unite(col = "name",name, var, sep = "_" ) %>%
-  pivot_wider()
-
-# mydata <- mydata  %>%
-#   pivot_wider(names_from = "name") %>%
-#   filter(num > 1) %>%
-#   split(.$var) %>%
-#   map(~ .x %>% select(-var))
-
-mydata
-usethis::use_data(mydata, overwrite = TRUE)
->>>>>>> 25cd8ccd0edfc68b927e5a6a545210935dacc92d
-

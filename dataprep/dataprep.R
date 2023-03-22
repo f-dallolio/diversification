@@ -6,6 +6,7 @@ library(fdutils)
 # remotes::install_github("f-dallolio/diversification")
 library(diversification)
 library(lubridate)
+library(ggplot2)
 
 # data set directory
 data_raw_file <- "https://www.dropbox.com/s/fy4kxpeb9v55gf3/diversification_raw.csv?dl=1"
@@ -135,6 +136,9 @@ panel_df <- raw_df %>%
   )
 
 mydata <- panel_df %>%
+  # select(id, t,
+  #        adspend,
+  #        contains(c("num_", "hhi_", "ssd_"))) %>%
   pivot_longer(cols = contains(c("num_", "hhi_", "ssd_")), names_to = "var") %>%
   mutate(
     name = str_split_i(var, "_", 1),
@@ -153,6 +157,12 @@ mydata <- panel_df %>%
   pivot_longer(num : dau) %>%
   unite(col = "name",name, var, sep = "_" ) %>%
   pivot_wider()
+
+# mydata <- mydata  %>%
+#   pivot_wider(names_from = "name") %>%
+#   filter(num > 1) %>%
+#   split(.$var) %>%
+#   map(~ .x %>% select(-var))
 
 mydata
 usethis::use_data(mydata, overwrite = TRUE)

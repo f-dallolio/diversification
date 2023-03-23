@@ -92,3 +92,5 @@ dm_all_keys %>%
 dm_all_keys %>% dm_draw
 
 usethis::use_data(dm_all_keys, overwrite = TRUE)
+
+lst <- dm_flatten_to_tbl(dm = dm_all_keys$dayparts)

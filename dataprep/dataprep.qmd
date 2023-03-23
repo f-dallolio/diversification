@@ -306,10 +306,10 @@ dm_mydata <- dm_mydata_nokey %>%
   dm_add_pk(table = panel_table, columns = everything()) %>%
   dm_add_pk(table = time_table, columns = everything()) %>%
 
-  dm_add_pk(table = dv_df, columns = c(id, t)) %>%
+  dm_add_pk(table = dv_df, columns = c(id, t, category)) %>%
   dm_add_fk(table = dv_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
   dm_add_fk(table = dv_df, columns = t, ref_table = time_table, ref_columns = t) %>%
-  dm_add_fk(table = dv_df, columns = c(id, t), ref_table = ad_df, ref_columns = c(id, t)) %>%
+  dm_add_fk(table = dv_df, columns = c(id, t, category), ref_table = ad_df, ref_columns = c(id, t, category)) %>%
   # dm_add_fk(table = dv_df, columns = c(id, t), ref_table = ad_df, ref_columns = c(id, t)) %>%
 
   dm_add_pk(table = ad_df, columns = c(id, t)) %>%

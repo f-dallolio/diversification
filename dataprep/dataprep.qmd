@@ -171,7 +171,6 @@ Separate
 #| output: false
 mydata_div_temp <- panel_df %>%
   select(id, t,
-         adspend,
          contains(c("num_", "hhi_", "ssd_"))) %>%
   pivot_longer(cols = contains(c("num_", "hhi_", "ssd_")), names_to = "variable") %>%
   mutate(

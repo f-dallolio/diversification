@@ -21,47 +21,96 @@ editor_options:
 
 ```{r}
 #|  output: false
-library(tidyverse)
-library(rlang)
-library(dm)
-library(glue)
-remotes::install_github("f-dallolio/diversification")
-library(diversification)
+# remotes::install_github("f-dallolio/fdutils")
+# install.packages("DiagrammeR")
+# remotes::install_github("f-dallolio/diversification")
+# remotes::install_github("f-dallolio/loadr")
+
+loadr::loadr(
+  rlang,
+  tidyverse,
+  tsibble,
+  broom,
+  lubridate,
+  ggplot2,
+  glue,
+  skimr,
+  fdutils,
+  diversification,
+  dm,
+  update = FALSE
+)
 ```
 
 # Load Data
 
 ```{r}
-load("~/Documents/R_wd/diversification/data/datalist_all_keys.rda")
-load("~/Documents/R_wd/diversification/data/datalist_only_pks.rda")
-load("~/Documents/R_wd/diversification/data/datalist.rda")
+load("data/dm_mydata.rda")
+load("data/dm_divdata.rda")
+```
 
-y_df <- datalist$dv_df %>% 
-  select(id, t, adawareness, impression, consideration, intention)
+# Panel Selection
 
-cx_df <- datalist$ad_df %>% 
-  select(id, t, clutter)
+## Non Div Variables
+```{r}
+mydata <- dm_mydata %>% 
+  pull_tbl(data_df) %>% 
+  select(
+    id, t, category,
+    adawareness, impression, consideration, intention,
+    adspend, clutter
+  )
 
-ax_df <- datalist$ad_df %>% 
-  select(id, t, adspend)
+summary_select <- mydata %>% 
+  group_by(id, category) %>% 
+  summarise(
+    N = n(),
+    pct_ad1 = mean(adspend > 0),
+    max_cons_ad0 = max(consecutive(adspend == 0)),
+    mean_adspend = mean(adspend),
+    sd_adspend = sd(adspend)
+  ) %>% 
+  ungroup() %>% 
+  filter(
+    N == max(N),
+    max_cons_ad0 <= 26
+  )
 
-mx1_df <- datalist$brandmod_df %>% 
-  select(id, size) %>% 
-  mutate(size = (size - median(size)) / IQR(size) )
+model_data <- mydata %>% 
+  filter(id %in% pull(summary_select, id))
 
-mx2_df <- datalist$catmod_df %>% 
-  select(category, risk, involvement, hedonic) %>% 
-  mutate(
-    across( 
-      c(risk : hedonic),
-      ~ (.x - median(.x)) / IQR(.x)
-    )
+```
+
+
+## Div Variables
+```{r}
+div_names <- c("dayparts", "genres", "networks")
+
+divdata <- map_dfr(
+  .x = div_names, 
+  .f = ~ dm_divdata %>% 
+    pull_tbl(!!.x) %>% 
+    filter(id %in% pull(summary_select, id))
+  ) %>% 
+  transmute(
+    id, 
+    t, 
+    variable, 
+    nfx, 
+    cfx,
+    dfx = 1 - cfx
   )
 ```
 
 # Models
 
 ## Diversification: One Measure
+
+```{r}
+
+```
+
+
 ### Moderator: Hedonic Value
 
 ```{r}
@@ -77,13 +126,11 @@ fmls <- c(
 )
 ```
 
-
 ### Moderator: Perceived Risk
 
 ```{r}
 
 ```
-
 
 ### Moderator: Involvement
 
@@ -91,15 +138,14 @@ fmls <- c(
 
 ```
 
-
 ### Moderator: Brand Size
 
 ```{r}
 
 ```
-
 
 ## Diversification: Dayparts and f(Natworks, Genres)
+
 ### Moderator: Hedonic Value
 
 ```{r}
@@ -115,13 +161,11 @@ fmls <- c(
 )
 ```
 
-
 ### Moderator: Perceived Risk
 
 ```{r}
 
 ```
-
 
 ### Moderator: Involvement
 
@@ -134,15 +178,73 @@ fmls <- c(
 ```{r}
 
 ```
-
 
 ## Diversification: Dayparts and Genres
+
+```{r}
+dayparts_data <- divdata %>% 
+  filter(variable == "dayparts") %>% 
+  select(-variable) %>% 
+  rename_with(~ str_c("dayparts_", .x), .cols = c(nfx, cfx, dfx))
+
+genres_data <- divdata %>% 
+  filter(variable == "genres") %>% 
+  select(-variable) %>% 
+  rename_with(~ str_c("genres_", .x), .cols = c(nfx, cfx, dfx))
+
+tot_data <- model_data %>% 
+  inner_join(dayparts_data) %>% 
+  inner_join(genres_data) %>% 
+  rename(
+    y1 = adawareness,
+    y2 = impression,
+    y3 = consideration,
+    y4 = intention,
+    cx = clutter,
+    ax = adspend
+  ) %>% 
+  group_by(id) %>% 
+  mutate(
+    across(
+      .cols = contains(str_c("y", 1:4)),
+      .fns = list("lag" = ~ lag(.x)),
+      .names = "{.col}_{.fn}"
+    ),
+    .before = ax
+  ) %>% 
+  mutate(
+    across(
+      .cols = contains(c(str_c("y", 1:4), "ax", "cx")),
+      .fns = list("log" = ~ log1p(.x)),
+      .names = "{.fn}_{.col}"
+    ),
+    .before = ax
+  ) %>% 
+  select(-y1 : -y4, -y1_lag : -y4_lag)
+
+tot_data
+```
+
+```{r}
+lm1 <- lm(
+  log_y1 ~ 
+    0 + id + log_y1_lag:id + log_cx + log_ax + log_ax:id + log_ax : (dayparts_nfx + dayparts_dfx) + log_ax : (genres_nfx + genres_dfx),
+  data = tot_data %>% mutate(log_ax = log_ax / 10, log_cx = log_cx / 10)
+  )
+
+summary_df <- summary(lm1) %>% tidy 
+summary_df %>% 
+  filter(str_detect(term, "id_") & str_detect(term, "_lag"))
+
+summary(lm1)
+
+```
+
 ### Moderator: Hedonic Value
 
 ```{r}
 
 ```
-
 
 ### Moderator: Perceived Risk
 
@@ -150,28 +252,25 @@ fmls <- c(
 
 ```
 
-
 ### Moderator: Involvement
 
 ```{r}
 
 ```
 
-
 ### Moderator: Brand Size
 
 ```{r}
 
 ```
-
 
 ## Diversification: Dayparts and Natworks
+
 ### Moderator: Hedonic Value
 
 ```{r}
 
 ```
-
 
 ### Moderator: Perceived Risk
 
@@ -180,6 +279,7 @@ fmls <- c(
 ```
 
 ### Moderator: Involvement
+
 ```{r}
 
 ```
@@ -189,4 +289,3 @@ fmls <- c(
 ```{r}
 
 ```
-

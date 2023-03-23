@@ -2,6 +2,8 @@
 title: "Data Prep"
 format: html
 editor: visual
+editor_options: 
+  chunk_output_type: console
 ---
 
 # Set-Up
@@ -10,17 +12,24 @@ Load the necessary libraries:
 ```{r}
 #| output: false
 
-remotes::install_github("f-dallolio/fdutils", quiet = TRUE)
-remotes::install_github("f-dallolio/diversification", quiet = TRUE)
+remotes::install_github("f-dallolio/fdutils")
+install.packages("DiagrammeR")
+remotes::install_github("f-dallolio/diversification")
+remotes::install_github("f-dallolio/loadr")
 
-library(rlang)
-library(tidyverse)
-library(tsibble)
-library(lubridate)
-library(ggplot2)
-library(skimr)
-library(fdutils)
-library(diversification)
+loadr::loadr(
+  rlang,
+  tidyverse,
+  tsibble,
+  lubridate,
+  ggplot2,
+  glue,
+  skimr,
+  fdutils,
+  diversification,
+  dm,
+  update = FALSE
+)
 ```
 
 Set up the directory for the dataset:
@@ -106,18 +115,17 @@ panel_df <- raw_df %>%
     hhi_networks = hhi_network,
     hhi_genres = hhi_genre,
     hhi_dayparts = hhi_daypart1,
-    hhi_dayparts2 = hhi_daypart2,
+    hhi_dayparts_2 = hhi_daypart2,
     hhi_dayhours = hhi_hours_of_day,
     hhi_weekdays = hhi_days_in_week,
     ssd_networks = stdev_network_share,
     ssd_genres = stdev_genre_share,
     ssd_dayparts = stdev_daypart1_share,
-    ssd_dayparts2 = stdev_daypart2_share,
+    ssd_dayparts_2 = stdev_daypart2_share,
     ssd_dayhours = stdev_hours_of_day_share,
     ssd_weekdays = stdev_days_in_week_share,
+    
     # --- moderators
-
-    ## -- category - level
     risk = Risk1,
     risk2 = Risk2,
     risk3 = Risk3,
@@ -133,9 +141,11 @@ panel_df <- raw_df %>%
   group_by(id) %>%
   mutate(
     # --- moderators
+    
     ## -- brand - level
     size = mean(currentowner),
   ) %>%
+  
   # --- create category ad spending and clutter
   group_by(t, category) %>%
   mutate(
@@ -195,7 +205,7 @@ mydata_div_1 <- mydata_div_temp %>%
   ) %>%
   relocate(nfx, .after = nef)
 
-mydata_div <- mydata_div_temp %>%
+divdata_list <- mydata_div_temp %>%
   select(id, t, variable) %>%
   left_join(
     bind_rows(
@@ -271,16 +281,72 @@ data_df <- inner_join(dv_df, ad_df)
 
 
 ```{r}
-dm_no_keys <- new_dm(
+dm_mydata_nokey <- new_dm(
   tables = list(
-    panel_table, time_table,
+    panel_table, 
+    time_table,
     dv_df,
     ad_df,
     brand_moderators,
     cat_moderators
-  ) %>%
-    c(mydata_list$mydata_div)
+  )
+)
+  
+dm_divdata_nokey <- new_dm(
+  tables = list(
+    panel_table,
+    time_table
+  ) %>% 
+    c(divdata_list)
 )
 ```
 
+```{r}
+dm_mydata <- dm_mydata_nokey %>%
+  dm_add_pk(table = panel_table, columns = everything()) %>%
+  dm_add_pk(table = time_table, columns = everything()) %>%
+
+  dm_add_pk(table = dv_df, columns = c(id, t)) %>%
+  dm_add_fk(table = dv_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = dv_df, columns = t, ref_table = time_table, ref_columns = t) %>%
+
+  dm_add_pk(table = ad_df, columns = c(id, t)) %>%
+  dm_add_fk(table = ad_df, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = ad_df, columns = t, ref_table = time_table, ref_columns = t) %>%
+
+  dm_add_pk(table = brand_moderators, columns = id) %>%
+  dm_add_fk(table = brand_moderators, columns = id, ref_table = panel_table, ref_columns = id) %>%
+  dm_add_fk(table = dv_df, columns = id, ref_table = brand_moderators, ref_columns = id) %>%
+  dm_add_fk(table = ad_df, columns = id, ref_table = brand_moderators, ref_columns = id) %>%
+
+  dm_add_pk(table = cat_moderators, columns = category) %>%
+  dm_add_fk(table = dv_df, columns = category, ref_table = cat_moderators, ref_columns = category) %>% 
+  dm_add_fk(table = ad_df, columns = category, ref_table = cat_moderators, ref_columns = category)
+
+dm_mydata %>%
+  dm_examine_constraints()
+dm_mydata %>% dm_draw
+
+
+
+dm_divdata <-  dm_divdata_nokey %>%
+    dm_add_pk(table = panel_table, columns = everything()) %>%
+    dm_add_pk(table = time_table, columns = everything()) 
+
+for(i in seq_along(names(divdata_list))){
+
+  nm <- names(divdata_list)[i]
+
+  dm_divdata <-  dm_divdata %>%
+    dm_add_pk(table = {{nm}}, columns = c(id, t)) %>%
+    dm_add_fk(table = {{nm}}, columns = id, ref_table = panel_table, ref_columns = id) %>%
+    dm_add_fk(table = {{nm}}, columns = t, ref_table = time_table, ref_columns = t)
+}
+
+dm_divdata %>%
+  dm_examine_constraints()
+dm_divdata %>% dm_draw
+
+dm_get_all_fks(dm_divdata)
+```
 

@@ -1,22 +1,40 @@
-# load the necessary libraries
+---
+title: "Data Prep"
+format: html
+editor: visual
+---
+
+# Set-Up
+
+Load the necessary libraries:
+```{r}
+#| output: false
+
+remotes::install_github("f-dallolio/fdutils", quiet = TRUE)
+remotes::install_github("f-dallolio/diversification", quiet = TRUE)
+
+library(rlang)
 library(tidyverse)
 library(tsibble)
-library(skimr)
-remotes::install_github("f-dallolio/fdutils")
-library(fdutils)
-remotes::install_github("f-dallolio/diversification")
-library(diversification)
 library(lubridate)
 library(ggplot2)
+library(skimr)
+library(fdutils)
+library(diversification)
+```
 
-# data set directory
-data_raw_file <- "https://www.dropbox.com/s/fy4kxpeb9v55gf3/diversification_raw.csv?dl=1"
+Set up the directory for the dataset:
+```{r}
+raw_file <- "https://www.dropbox.com/s/fy4kxpeb9v55gf3/diversification_raw.csv?dl=1"
+```
 
-# import data
-raw_df <- read_csv(data_raw_file, show_col_types = FALSE) %>% distinct()
+Load the data:
+```{r}
+raw_df <- read_csv(file = raw_file, show_col_types = FALSE) %>% distinct()
+```
 
-# Rename and Transform data
-#
+Rename and transform the data:
+```{r}
 panel_df <- raw_df %>%
   transmute(
 
@@ -136,15 +154,12 @@ panel_df <- raw_df %>%
     ),
     .after = catspend01
   )
+```
 
-mydata_df <-
-  panel_df %>%
-  select(
-    !contains(c("num_", "hhi_", "ssd_"))
-  )
-
+Separate 
+```{r}
+#| output: false
 mydata_div_temp <- panel_df %>%
-  # filter(adspend > 0) %>%
   select(id, t,
          adspend,
          contains(c("num_", "hhi_", "ssd_"))) %>%
@@ -181,24 +196,36 @@ mydata_div_1 <- mydata_div_temp %>%
   relocate(nfx, .after = nef)
 
 mydata_div <- mydata_div_temp %>%
-  select(id, t, adspend, variable) %>%
-  left_join(mydata_div_n) %>%
-  left_join(mydata_div_1) %>%
-  # filter(adspend>0) %>%
+  select(id, t, variable) %>%
+  left_join(
+    bind_rows(
+      mydata_div_n, 
+      mydata_div_1
+    )
+  ) %>%
   mutate(across(c(num:tau), ~ if_else(is.na(.x), 0, .x) )) %>%
   split(.$variable)
+```
 
+```{r}
+mydata_df <-
+  panel_df %>%
+  select(
+    - contains(c("num_", "hhi_", "ssd_"))
+  )
+```
 
+```{r}
 rm(
-  data_raw_file,
-  raw_df,
   panel_df,
-  mydata_div_temp,
-  mydata_div_n,
+  mydata_div_temp, 
+  mydata_div_n, 
   mydata_div_1
 )
+```
 
 
+```{r}
 panel_table <- mydata_df %>%
   select(id, brand : sector) %>%
   mutate(id = as_factor(id)) %>%
@@ -215,6 +242,20 @@ time_table <- mydata_df %>%
          yearweek = as.ordered(yearweek),
          .after = weeknum)
 
+dv_df <- mydata_df %>%
+  select(
+    id, t,
+    category,
+    adawareness : wordofmouth
+  )
+
+ad_df <- mydata_df %>%
+  select(
+    id, t, 
+    category, 
+    adspend : clutter
+  )
+
 brand_moderators <- mydata_df %>%
   select(id, size) %>%
   distinct()
@@ -222,19 +263,24 @@ brand_moderators <- mydata_df %>%
 cat_moderators <- mydata_df %>%
   select(category, risk : purchasefreq) %>%
   distinct()
+```
 
-dv_df <- mydata_df %>%
-  select( id, t,
-          category,
-          adawareness : wordofmouth)
-
-ad_df <- mydata_df %>%
-  select( id, t,
-          category,
-          adspend : clutter
-  )
-
+```{r}
 data_df <- inner_join(dv_df, ad_df)
+```
 
 
-usethis::use_data(mydata_list, overwrite = TRUE)
+```{r}
+dm_no_keys <- new_dm(
+  tables = list(
+    panel_table, time_table,
+    dv_df,
+    ad_df,
+    brand_moderators,
+    cat_moderators
+  ) %>%
+    c(mydata_list$mydata_div)
+)
+```
+
+

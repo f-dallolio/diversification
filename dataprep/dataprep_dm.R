@@ -3,6 +3,7 @@ library(tsibble)
 library(fdutils)
 library(dm)
 
+
 load("data/mydata_list.rda")
 
 panel_table <- mydata_list$mydata %>%
@@ -91,4 +92,6 @@ dm_all_keys %>%
   dm_examine_constraints()
 dm_all_keys %>% dm_draw
 
-usethis::use_data(dm_all_keys, overwrite = TRUE)
+dm_data <- dm_all_keys
+
+usethis::use_data(dm_data, overwrite = TRUE)

@@ -346,7 +346,13 @@ for(i in seq_along(names(divdata_list))){
 dm_divdata %>%
   dm_examine_constraints()
 dm_divdata %>% dm_draw
-
 dm_get_all_fks(dm_divdata)
 ```
 
+```{r}
+usethis::use_data(dm_mydata, overwrite = TRUE)
+```
+
+```{r}
+usethis::use_data(dm_divdata, overwrite = TRUE)
+```

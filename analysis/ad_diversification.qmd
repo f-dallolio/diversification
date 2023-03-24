@@ -229,6 +229,12 @@ tot_data <- model_data %>%
 
 tot_data
 
+ model_data %>% 
+  inner_join(dayparts_data) %>% 
+  inner_join(genres_data) 
+ 
+ 
+
 ```
 
 ### Moderator: Hedonic Value

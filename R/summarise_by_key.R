@@ -9,12 +9,14 @@
 #' @export
 #' @import tsibble
 #' @examples
-summarise_by_key <- function(.data, ..., .and_by = NULL, .groups = NULL){
+summarise_by_key <- function(.data, ... , .and_by = NULL, .groups = NULL){
   stopifnot(".data must be a tsibble" = tsibble::is_tsibble(.data))
-  and_by<- rlang::enquos(.and_by, .named = TRUE)
+  tbl_data = tidyr::as_tibble(.data)
+  keys <- key_vars(.data)
+  grps <- tbl_data %>% select(all_of(keys), {{.and_by}}) %>% names()
   newdata <- dplyr::grouped_df(
     data = tidyr::as_tibble(.data),
-    vars = c(tsibble::key_vars(.data), names(and_by))
+    vars = grps
   )
-  dplyr::summarise(.data = newdata, ... , .by = NULL, .groups = .groups)
+  dplyr::summarise(.data = newdata, ... , .by = NULL)
 }

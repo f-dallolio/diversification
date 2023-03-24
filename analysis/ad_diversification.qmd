@@ -58,7 +58,7 @@ mydata <- dm_mydata %>%
   select(
     id, t, category,
     adawareness, impression, consideration, intention,
-    adspend, clutter
+    adspend, catspend, clutter
   )
 
 summary_select <- mydata %>% 
@@ -201,9 +201,14 @@ tot_data <- model_data %>%
     y3 = consideration,
     y4 = intention,
     cx = clutter,
+    cax = catspend,
     ax = adspend
   ) %>% 
   group_by(id) %>% 
+  mutate(
+    ax = ax / 1000,
+    cx = cx / 1000,
+  ) %>% 
   mutate(
     across(
       .cols = contains(str_c("y", 1:4)),
@@ -214,7 +219,7 @@ tot_data <- model_data %>%
   ) %>% 
   mutate(
     across(
-      .cols = contains(c(str_c("y", 1:4), "ax", "cx")),
+      .cols = contains(c(str_c("y", 1:4), "ax", "cax", "cx")),
       .fns = list("log" = ~ log1p(.x)),
       .names = "{.fn}_{.col}"
     ),
@@ -223,20 +228,6 @@ tot_data <- model_data %>%
   select(-y1 : -y4, -y1_lag : -y4_lag)
 
 tot_data
-```
-
-```{r}
-lm1 <- lm(
-  log_y1 ~ 
-    0 + id + log_y1_lag:id + log_cx + log_ax + log_ax:id + log_ax : (dayparts_nfx + dayparts_dfx) + log_ax : (genres_nfx + genres_dfx),
-  data = tot_data %>% mutate(log_ax = log_ax / 10, log_cx = log_cx / 10)
-  )
-
-summary_df <- summary(lm1) %>% tidy 
-summary_df %>% 
-  filter(str_detect(term, "id_") & str_detect(term, "_lag"))
-
-summary(lm1)
 
 ```
 

@@ -37,6 +37,7 @@ build_summary <- function(.data, .and_by, .cols, .fns){
   fun_list <- dots_list(.fns, .named = TRUE)
 
   list(
+    ts_attributes = ts_attributes,
     group_list = c(list(data = group_data),
                    list(attributes = group_attr)),
     var_list = c(list(data = var_data),

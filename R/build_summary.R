@@ -60,16 +60,8 @@ build_summary <- function(.data, .and_by, .cols, .fns){
                 ts_attributes),
     group_list = list(names = group_names,
                       attributes = group_attr),
-    var_list = list(var_names,
+    var_list = list(names = var_names,
                     attributes = var_attr),
     fun_list = .fns )
 
 }
-
-x<- tsibbledata::global_economy %>%
-  rename_with(.fn = tolower, .cols = everything()) %>%
-  mutate(year2 = paste0("y", year),
-         y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975"))
-
-bx <- x %>% build_summary(.and_by = y1975, .cols = c(imports, exports, code), .fns = list(mean, sd, quantile))
-glimpse(bx)

@@ -4,6 +4,7 @@
 ## usethis namespace: start
 #' @import rlang
 #' @import tsibble
+#' @import tsibbledata
 #' @import dplyr
 #' @import tidyr
 #' @import purrr

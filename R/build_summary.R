@@ -12,32 +12,51 @@
 build_summary <- function(.data, .and_by, .cols, .fns){
 
   stopifnot(".data must be a tsibble" = tsibble::is_tsibble(.data))
+#
+#   and_by = enquo(.and_by)
+
 
   keys <- key_vars(.data)
   idx <- index_var(.data)
+  ts_data = as_tibble(.data) %>%
+    mutate(row = row_number()) %>%
+    select(row, all_of(idx), all_of(keys), {{.and_by}}, {{.cols}} )
   ts_attributes <- attributes(.data)
 
-  tbl_data = as_tibble(.data)
+
+
+  tbl_data = as_tibble(ts_data)
+
+  # tbl_data = as_tibble(.data) %>%
+  #   mutate(row = row_number(), .before = 1)
 
   group_data <- tbl_data %>%
-    transmute(
+    select(row, all_of(keys), {{.and_by}} ) %>%
+    mutate(
       across(
-        c(all_of(keys), {{.and_by}} ),
+        everything(),
         as_factor)
       ) %>%
-    grouped_df(names(.))
-  group_attr <- map(group_data, ~ list(class = class(.x), attributes = attributes(.x))) %>%
-    set_names(names(group_data))
+    grouped_df(vars = names(.)[-1])
+
+  group_attr <- group_data %>%
+    select(-row) %>%
+    map( ~ list(class = class(.x), attributes = attributes(.x))) %>%
+    set_names(group_data %>% select(-row) %>% names)
 
   var_data <- tbl_data %>%
-    select( {{.cols}} )
-  var_attr <- map(var_data, ~ list(class = class(.x), attributes = attributes(.x)))%>%
-    set_names(names(var_data))
+    select( row,  {{.cols}} )
+
+  var_attr <- var_data %>%
+    select(-row) %>%
+    map( ~ list(class = class(.x), attributes = attributes(.x))) %>%
+    set_names(var_data %>% select(-row) %>% names)
 
   fun_list <- dots_list(.fns, .named = TRUE)
 
   list(
-    ts_attributes = ts_attributes,
+    ts_list = c(list(data = ts_data),
+                ts_attributes),
     group_list = c(list(data = group_data),
                    list(attributes = group_attr)),
     var_list = c(list(data = var_data),
@@ -45,3 +64,11 @@ build_summary <- function(.data, .and_by, .cols, .fns){
     fun_list = .fns )
 
 }
+
+x<- tsibbledata::global_economy %>%
+  rename_with(.fn = tolower, .cols = everything()) %>%
+  mutate(year2 = paste0("y", year),
+         y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975"))
+
+bx <- x %>% build_summary(.and_by = y1975, .cols = c(imports, exports, code), .fns = list(mean, sd, quantile))
+glimpse(bx)

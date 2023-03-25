@@ -71,7 +71,7 @@ build_summary <- function(.data, .and_by, .cols, .fns){
   )
 
   out_tbl <- select(.data = groups_tbl, grp_id, row0, row1) %>%
-    expand_grid(var_id = var_tbl$var_id) %>%
+    expand_grid(var_name = var_tbl$var_name) %>%
     expand_grid(fun_id = fun_tbl$fun_id)
 
   return(

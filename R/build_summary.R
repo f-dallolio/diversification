@@ -61,25 +61,27 @@ build_summary <- function(.data, .and_by, .cols, .fns){
     relocate(grp_id, 1)
   var_tbl <- tibble(
     var_id = var_names %>% seq_along,
-    var_name = var_names[var_id],
+    var_names = var_names[var_id],
     var_class = var_class[var_id],
     var_type = var_type[var_id]
   )
   fun_tbl <- tibble(
     fun_id = seq_along(fun_list),
     fun_name = names(fun_list)
-  )
+    )
 
-  out_tbl <- select(.data = groups_tbl, grp_id, row0, row1) %>%
-    expand_grid(var_id = var_tbl$var_id) %>%
-    expand_grid(fun_id = fun_tbl$fun_id)
+  look_tbl <- select(.data = groups_tbl, grp_id, row0, row1) %>%
+    expand_grid(var_names = var_tbl$var_names) %>%
+    expand_grid(fun_id = fun_tbl$fun_id) %>%
+    mutate(row_id = row_number(), .before = 1)
 
   return(
     list(
-      out_tbl,
+      look_tbl,
       groups_tbl,
       var_tbl,
       fun_tbl,
+      fun_list
     )
   )
 }
@@ -106,8 +108,45 @@ ts_data <- global_economy %>%
     y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975")
   )
 
-bs <- build_summary(.data = ts_data,
+.out_list <- build_summary(.data  = ts_data,
                     .and_by = y1975,
                     .cols = c(imports, exports, code),
                     .fns = list(mean, sd, quantile))
-bs
+
+.out_list
+
+
+summary_getter <- function(.data, .out_list){ # grp_id, row0, row1, var_id, fun_id ){
+
+  row_id <- pluck(.out_list, "look_tbl", "row_id")
+  grp_id <- pluck(.out_list, "look_tbl", "grp_id")
+  row0 <- pluck(.out_list, "look_tbl", "row0")
+  row1 <-  pluck(.out_list, "look_tbl", "row1")
+  var_names <-  pluck(.out_list, "look_tbl", "var_names")
+  fun_id <-  pluck(.out_list, "look_tbl", "fun_id")
+  fun_fx <- pluck(.out_list, "fun_list")
+
+  var_data <- .data %>%
+    as_tibble() %>%
+    select(all_of(pluck(.out_list, "look_tbl", "var_names")))
+
+  summary_list <- as.list(seq_along(row_id))
+  i=1
+  for(i in seq_along(row_id)){
+    row_id_i <- row_id[i]
+    grp_id_i <- grp_id[i]
+    row0_i <- row0[i]
+    row1_i <- row1[i]
+    var_names_i <- var_names[i]
+    fun_id_i  <- fun_id[i]
+    fun_fx_i <- fun_fx[i]
+
+    summary_list[[i]] <- var_data %>%
+      filter( between(row_number(), row0_i, row1_i) ) %>%
+      pull(var_names_i)
+    print(i)
+  }
+summary_list
+}
+
+summary_getter(.data = .data, .out_list = out_list)

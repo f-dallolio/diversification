@@ -71,7 +71,7 @@ build_summary <- function(.data, .and_by, .cols, .fns){
   )
 
   out_tbl <- select(.data = groups_tbl, grp_id, row0, row1) %>%
-    expand_grid(var_name = var_tbl$var_name) %>%
+    expand_grid(var_id = var_tbl$var_id) %>%
     expand_grid(fun_id = fun_tbl$fun_id)
 
   return(
@@ -88,25 +88,26 @@ build_summary <- function(.data, .and_by, .cols, .fns){
 # remotes::install_github("f-dallolio/fdutils")
 # remotes::install_github("f-dallolio/myloadr")
 #
-# library(myloadr)
-# myloadr(
-#   tidyverse,
-#   tsibble,
-#   tsibbledata,
-#   rlang,
-#   stringr,
-#   fdutils,
-#   diversification,
-#   update = TRUE
-# )
-#
-# ts_data <- global_economy %>%
-#   rename_with(.fn = stringr::str_to_lower, .cols = everything()) %>%
-#   mutate(
-#     y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975")
-#   )
-#
-# bs <- build_summary(.data = ts_data,
-#                     .and_by = y1975,
-#                     .cols = c(imports, exports, code),
-#                     .fns = list(mean, sd, quantile))
+library(myloadr)
+myloadr(
+  tidyverse,
+  tsibble,
+  tsibbledata,
+  rlang,
+  stringr,
+  fdutils,
+  diversification,
+  update = TRUE
+)
+
+ts_data <- global_economy %>%
+  rename_with(.fn = stringr::str_to_lower, .cols = everything()) %>%
+  mutate(
+    y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975")
+  )
+
+bs <- build_summary(.data = ts_data,
+                    .and_by = y1975,
+                    .cols = c(imports, exports, code),
+                    .fns = list(mean, sd, quantile))
+bs

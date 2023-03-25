@@ -15,25 +15,16 @@ build_summary <- function(.data, .and_by, .cols, .fns){
 
   keys <- key_vars(.data)
   idx <- index_var(.data)
-
   ts_data = as_tibble(.data) %>%
     select(all_of(idx), all_of(keys), {{.and_by}}, {{.cols}} ) %>%
-    mutate(
-      across(
-        c( all_of(keys), {{.and_by}} ),
-        as_factor)
-    )
-    # mutate(row = row_number()) %>%
-    # select(row, all_of(idx), all_of(keys), {{.and_by}}, {{.cols}} )
+    mutate( across( c( all_of(keys), {{.and_by}} ), as_factor) )
 
   tbl_data = as_tibble(ts_data)
-
 
   group_data <- tbl_data %>%
     select( all_of(keys), {{.and_by}} ) %>%
     # select(row, all_of(keys), {{.and_by}} ) %>%
     grouped_df(vars = names(.))
-
   group_names <- group_data %>%
     # select(-row) %>%
     names()
@@ -45,13 +36,11 @@ build_summary <- function(.data, .and_by, .cols, .fns){
   var_data <- tbl_data %>%
     select( {{.cols}} )
     # select( row,  {{.cols}} )
-
   var_names <- var_data %>%
     # select(-row) %>%
     names()
   var_class <- var_data %>%
     map_chr(~ class(.x))
-
   var_type <- var_data %>%
     map_chr(~ case_when(is_categorical(.x) ~ "categprical",
                         is_continupus(.x) ~ "continuous") )
@@ -70,14 +59,12 @@ build_summary <- function(.data, .and_by, .cols, .fns){
       .groups = "drop"
     ) %>%
     relocate(grp_id, 1)
-
   var_tbl <- tibble(
     var_id = var_names %>% seq_along,
     var_name = var_names[var_id],
     var_class = var_class[var_id],
     var_type = var_type[var_id]
   )
-
   fun_tbl <- tibble(
     fun_id = seq_along(fun_list),
     fun_name = names(fun_list)
@@ -95,5 +82,32 @@ build_summary <- function(.data, .and_by, .cols, .fns){
       fun_tbl,
     )
   )
-
 }
+
+
+# remotes::install_github("f-dallolio/diversification")
+# remotes::install_github("f-dallolio/fdutils")
+# remotes::install_github("f-dallolio/myloadr")
+#
+# library(myloadr)
+# myloadr(
+#   tidyverse,
+#   tsibble,
+#   tsibbledata,
+#   rlang,
+#   stringr,
+#   fdutils,
+#   diversification,
+#   update = TRUE
+# )
+#
+# ts_data <- global_economy %>%
+#   rename_with(.fn = stringr::str_to_lower, .cols = everything()) %>%
+#   mutate(
+#     y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975")
+#   )
+#
+# bs <- build_summary(.data = ts_data,
+#                     .and_by = y1975,
+#                     .cols = c(imports, exports, code),
+#                     .fns = list(mean, sd, quantile))

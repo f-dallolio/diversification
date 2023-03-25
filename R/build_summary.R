@@ -84,7 +84,6 @@ build_summary <- function(.data, .and_by, .cols, .fns){
   )
 }
 
-
 # remotes::install_github("f-dallolio/diversification")
 # remotes::install_github("f-dallolio/fdutils")
 # remotes::install_github("f-dallolio/myloadr")

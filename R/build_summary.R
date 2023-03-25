@@ -45,7 +45,6 @@ build_summary <- function(.data, .and_by, .cols, .fns){
     map_chr(~ case_when(is_categorical(.x) ~ "categprical",
                         is_continupus(.x) ~ "continuous") )
 
-  fun_list <- .fns
 
   groups_tbl <- ts_data %>%
     mutate(row = row_number()) %>%
@@ -90,63 +89,66 @@ build_summary <- function(.data, .and_by, .cols, .fns){
 # remotes::install_github("f-dallolio/fdutils")
 # remotes::install_github("f-dallolio/myloadr")
 #
-library(myloadr)
-myloadr(
-  tidyverse,
-  tsibble,
-  tsibbledata,
-  rlang,
-  stringr,
-  fdutils,
-  diversification,
-  update = TRUE
-)
-
-ts_data <- global_economy %>%
-  rename_with(.fn = stringr::str_to_lower, .cols = everything()) %>%
-  mutate(
-    y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975")
-  )
-
-.out_list <- build_summary(.data  = ts_data,
-                    .and_by = y1975,
-                    .cols = c(imports, exports, code),
-                    .fns = list(mean, sd, quantile))
-
-.out_list
-
-
-summary_getter <- function(.data, .out_list){ # grp_id, row0, row1, var_id, fun_id ){
-
-  row_id <- pluck(.out_list, "look_tbl", "row_id")
-  grp_id <- pluck(.out_list, "look_tbl", "grp_id")
-  row0 <- pluck(.out_list, "look_tbl", "row0")
-  row1 <-  pluck(.out_list, "look_tbl", "row1")
-  var_names <-  pluck(.out_list, "look_tbl", "var_names")
-  fun_id <-  pluck(.out_list, "look_tbl", "fun_id")
-  fun_fx <- pluck(.out_list, "fun_list")
-
-  var_data <- .data %>%
-    as_tibble() %>%
-    select(all_of(pluck(.out_list, "look_tbl", "var_names")))
-
-  summary_list <- as.list(seq_along(row_id))
-  i=1
-  for(i in seq_along(row_id)){
-    row_id_i <- row_id[i]
-    grp_id_i <- grp_id[i]
-    row0_i <- row0[i]
-    row1_i <- row1[i]
-    var_names_i <- var_names[i]
-    fun_id_i  <- fun_id[i]
-    fun_fx_i <- fun_fx[i]
-
-    summary_list[[i]] <- var_data %>%
-      filter( between(row_number(), row0_i, row1_i) ) %>%
-      pull(var_names_i)
-    print(i)
-  }
-summary_list
-}
-
-summary_getter(.data = .data, .out_list = out_list)
+# library(myloadr)
+# myloadr(
+#   tidyverse,
+#   tsibble,
+#   tsibbledata,
+#   rlang,
+#   stringr,
+#   fdutils,
+#   diversification,
+#   update = TRUE
+# )
+#
+# ts_data <- global_economy %>%
+#   rename_with(.fn = stringr::str_to_lower, .cols = everything()) %>%
+#   mutate(
+#     y1975 = case_when(year < 1975 ~ "pre1975", .default = "post1975")
+#   )
+#
+# .out_list <- build_summary(.data  = ts_data,
+#                     .and_by = y1975,
+#                     .cols = c(imports, exports, code),
+#                     .fns = list(mean, sd, quantile))
+#
+# .out_list
+#
+#
+# summary_getter <- function(.data, .out_list){ # grp_id, row0, row1, var_id, fun_id ){
+#
+#   row_id <- pluck(.out_list, "look_tbl", "row_id")
+#   grp_id <- pluck(.out_list, "look_tbl", "grp_id")
+#   row0 <- pluck(.out_list, "look_tbl", "row0")
+#   row1 <-  pluck(.out_list, "look_tbl", "row1")
+#   var_names <-  pluck(.out_list, "look_tbl", "var_names")
+#   fun_id <-  pluck(.out_list, "look_tbl", "fun_id")
+#   fun_fx <- pluck(.out_list, "fun_list")
+#
+#   var_data <- .data %>%
+#     as_tibble() %>%
+#     select(all_of(pluck(.out_list, "look_tbl", "var_names")))
+#
+#   summary_list <- as.list(seq_along(row_id))
+#   i=1
+#   for(i in seq_along(row_id)){
+#     row_id_i <- row_id[i]
+#     grp_id_i <- grp_id[i]
+#     row0_i <- row0[i]
+#     row1_i <- row1[i]
+#     var_names_i <- var_names[i]
+#     fun_id_i  <- fun_id[i]
+#     fun_fx_i <- fun_fx[i]
+#
+#     summary_list[[i]] <- var_data %>%
+#       filter( between(row_number(), row0_i, row1_i) ) %>%
+#       pull(var_names_i)
+#     print(i)
+#   }
+# summary_list
+# }
+#
+# summary_getter(.data = .data, .out_list = out_list)
+#
+# sum_tbl <- skimr::skim(data = global_economy %>% as_tibble %>% group_by(Country)) %>%
+#   as_tibble

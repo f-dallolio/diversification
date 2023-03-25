@@ -4,7 +4,7 @@
 \alias{summarise_by_key}
 \title{Summarse by key only for tsibble}
 \usage{
-summarise_by_key(.data, ..., .and_by = NULL, .groups = NULL)
+summarise_by_key(.data, .and_by = NULL, ..., .groups = NULL)
 }
 \arguments{
 \item{.groups}{}

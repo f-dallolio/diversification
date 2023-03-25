@@ -6,6 +6,7 @@
 #' @import tsibble
 #' @import dplyr
 #' @import tidyr
+#' @import tidyselect
 #' @import purrr
 #' @import stringr
 #' @import glue

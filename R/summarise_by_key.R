@@ -1,4 +1,4 @@
-#' Summary by key for tsibble
+#' Summarse by key only for tsibble
 #'
 #' @param .data
 #' @param ...

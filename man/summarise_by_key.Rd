@@ -2,7 +2,7 @@
 % Please edit documentation in R/summarise_by_key.R
 \name{summarise_by_key}
 \alias{summarise_by_key}
-\title{Summary by key for tsibble}
+\title{Summarse by key only for tsibble}
 \usage{
 summarise_by_key(.data, ..., .and_by = NULL, .groups = NULL)
 }
@@ -10,5 +10,5 @@ summarise_by_key(.data, ..., .and_by = NULL, .groups = NULL)
 \item{.groups}{}
 }
 \description{
-Summary by key for tsibble
+Summarse by key only for tsibble
 }

@@ -1,36 +1,46 @@
-build_summary <- function(.data,.and_by = NULL, .cols, .fns){
-  `%>%` <- dplyr::`%>%`
+#' Summary Tables for Tsibble
+#'
+#' @param .data
+#' @param .and_by
+#' @param .cols
+#' @param .fns
+#'
+#' @return
+#' @export
+#'
+#' @examples
+build_summary <- function(.data, .and_by, .cols, .fns){
+
   stopifnot(".data must be a tsibble" = tsibble::is_tsibble(.data))
-  tbl_data = tidyr::as_tibble(.data)
-  keys <- tsibble::key_vars(.data)
-  grps <- tbl_data %>% select(all_of(keys), {{.and_by}}) %>% names()
-  newdata <- dplyr::grouped_df(
-    data = tbl_data %>% select(all_of(grps), {{.cols}} ),
-    vars = grps
-  )
 
-  newdata
+  keys <- key_vars(.data)
+  idx <- index_var(.data)
+  ts_attributes <- attributes(.data)
+
+  tbl_data = as_tibble(.data)
+
+  group_data <- tbl_data %>%
+    transmute(
+      across(
+        c(all_of(keys), {{.and_by}} ),
+        as_factor)
+      ) %>%
+    grouped_df(names(.))
+  group_attr <- map(group_data, ~ list(class = class(.x), attributes = attributes(.x))) %>%
+    set_names(names(group_data))
+
+  var_data <- tbl_data %>%
+    select( {{.cols}} )
+  var_attr <- map(var_data, ~ list(class = class(.x), attributes = attributes(.x)))%>%
+    set_names(names(var_data))
+
+  fun_list <- dots_list(.fns, .named = TRUE)
+
+  list(
+    group_list = c(list(data = group_data),
+                   list(attributes = group_attr)),
+    var_list = c(list(data = var_data),
+                 list(attributes = var_attr)),
+    fun_list = .fns )
+
 }
-
-library(tidyverse)
-.data=tsibbledata::global_economy
-
-
-.fns <- rlang::dots_list(mean=mean, sd=~sd(.x), quantile, .named = TRUE)
-
-i=3
-for(i in seq_along(.fns)){
-  fx <- purrr::as_mapper(.fns[[i]])
-
-  x = newdata$Imports
-  list(fx(x[!is.na(x)])) %>% set_names(names(.fns)[[i]])
-}
-
-
-newdata <-.data %>%
-  mutate(pre1975 = Year<1975) %>%
-  build_summary(.and_by = pre1975, .cols = c(Imports, Exports), .fns = .fns)
-gdata <- map2(.x = newdata$fun_id, .y = newdata$data, .f = ~ do.call())
-
-expand_grid(gdata, funs = .funs)
-

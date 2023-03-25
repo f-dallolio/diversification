@@ -9,7 +9,7 @@
 #' @export
 #' @import tsibble
 #' @examples
-summarise_by_key <- function(.data, ... , .and_by = NULL, .groups = NULL){
+summarise_by_key <- function(.data, .and_by = NULL, ... , .groups = NULL){
   stopifnot(".data must be a tsibble" = tsibble::is_tsibble(.data))
   tbl_data = tidyr::as_tibble(.data)
   keys <- key_vars(.data)

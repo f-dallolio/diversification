@@ -23,7 +23,7 @@ editor_options:
 #|  output: false
 # remotes::install_github("f-dallolio/fdutils")
 # install.packages("DiagrammeR")
-# remotes::install_github("f-dallolio/diversification")
+remotes::install_github("f-dallolio/diversification")
 # remotes::install_github("f-dallolio/loadr")
 
 myloadr::myloadr(
@@ -38,6 +38,9 @@ myloadr::myloadr(
   fdutils,
   diversification,
   dm,
+  cmdstanr,
+  brms,
+  rstanarm,
   update = FALSE
 )
 ```

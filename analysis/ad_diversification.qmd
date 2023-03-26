@@ -80,22 +80,6 @@ summary_select <- mydata %>%
 model_data <- mydata %>% 
   filter(id %in% summary_select$id)
 
-model_data %>% 
-  skim()
-
-model_data %>% 
-  group_by(id) %>% 
-  mutate(
-    across(
-      .cols = c(adawareness : intention),
-      ~ minmax(.x, 0, 100, .05)
-    )
-  ) %>% 
-  ungroup() %>% 
-  skim()
-
-
-
 ```
 
 ## Div Variables

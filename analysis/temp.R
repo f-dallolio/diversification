@@ -111,3 +111,4 @@ brm_mod <- brms::brm(
 devtools::load_all()
 devtools::document()
 devtools::install()
+devtools::build()

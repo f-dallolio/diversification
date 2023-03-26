@@ -9,6 +9,7 @@ editor_options:
 # Set-Up
 
 Load the necessary libraries:
+
 ```{r}
 #| output: false
 
@@ -33,16 +34,19 @@ loadr::loadr(
 ```
 
 Set up the directory for the dataset:
+
 ```{r}
 raw_file <- "https://www.dropbox.com/s/fy4kxpeb9v55gf3/diversification_raw.csv?dl=1"
 ```
 
 Load the data:
+
 ```{r}
 raw_df <- read_csv(file = raw_file, show_col_types = FALSE) %>% distinct()
 ```
 
 Rename and transform the data:
+
 ```{r}
 panel_df <- raw_df %>%
   transmute(
@@ -66,35 +70,35 @@ panel_df <- raw_df %>%
     brandawareness = aided,
     attention = attention,
 
-    buzz0 = buzz,
-    buzz = minmax(buzz, min = -100, max = 100, to_100 = TRUE),
+    # buzz_old = buzz,
+    buzz = buzz / 2 + 50,
 
     consideration = consider,
     currentowner = current_own,
     formerowner = former_own,
 
-    impression0 = impression,
-    impression = minmax(impression, min = -100, max = 100, to_100 = TRUE),
+    # impression_old = impression,
+    impression = impression / 2 + 50,
 
-    yougovindex0 = index,
-    yougovindex = minmax(index, min = -100, max = 100, to_100 = TRUE),
+    # yougovindex_old = index,
+    yougovindex = index / 2 + 50,
 
     intention = likelybuy,
 
-    perquality0= quality,
-    perquality = minmax(quality, min = -100, max = 100, to_100 = TRUE),
+    # perquality_old = quality,
+    perquality = quality / 2 + 50,
 
-    recommendation0 = recommend,
-    recommendation = minmax(recommend, min = -100, max = 100, to_100 = TRUE),
+    # recommendation_old = recommend,
+    recommendation = recommend / 2 + 50,
 
-    reputation0 = reputation,
-    reputation = minmax(reputation, min = -100, max = 100, to_100 = TRUE),
+    # reputation_old = reputation,
+    reputation = reputation / 2 + 50,
 
-    satisfaction0 = satisfaction,
-    satisfaction = minmax(satisfaction, min = -100, max = 100, to_100 = TRUE),
+    # satisfaction_old = satisfaction,
+    satisfaction =  satisfaction / 2 + 50,
 
-    pervalue0 = value,
-    pervalue = minmax(value, min = -100, max = 100, to_100 = TRUE),
+    # pervalue_old = value,
+    pervalue = value / 2 + 50,
 
     wordofmouth = wom,
 
@@ -136,7 +140,15 @@ panel_df <- raw_df %>%
     hedonic = Hedonic_value,
     budgetshare = Share_of_budget,
     purchasefreq = Purchase_frequency
-  ) %>%
+  ) %>% 
+  # mutate(
+  #   across(
+  #     .cols = c(adawareness : wordofmouth), 
+  #     .fns = ~ if_else(min(.x) == 0 | max(.x) == 100, 
+  #                      minmax(.x, min = 0, max = 100, to100 = TRUE, alpha = 0.05), 
+  #                      .x)
+  #   ) 
+  # ) %>%
   mutate(across(contains(c("num_", "hhi_", "ssd_")), ~ .x * adspend01)) %>%
   group_by(id) %>%
   mutate(
@@ -163,10 +175,18 @@ panel_df <- raw_df %>%
       .default = ((catspend - adspend) / (catspend01 - adspend01))
     ),
     .after = catspend01
-  )
+  ) %>% 
+  group_by(id) %>%
+  mutate(
+    across(
+      c(adawareness : wordofmouth) ,
+      ~ minmax(.x, min = 0, max = 100, x100 = TRUE, alpha = 0.1))
+    ) %>% 
+  ungroup() 
 ```
 
-Separate 
+Separate
+
 ```{r}
 #| output: false
 mydata_div_temp <- panel_df %>%
@@ -233,7 +253,6 @@ rm(
 )
 ```
 
-
 ```{r}
 panel_table <- mydata_df %>%
   select(id, brand : sector) %>%
@@ -277,7 +296,6 @@ cat_moderators <- mydata_df %>%
 ```{r}
 data_df <- inner_join(dv_df, ad_df)
 ```
-
 
 ```{r}
 dm_mydata_nokey <- new_dm(

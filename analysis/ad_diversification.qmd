@@ -26,7 +26,7 @@ editor_options:
 # remotes::install_github("f-dallolio/diversification")
 # remotes::install_github("f-dallolio/loadr")
 
-loadr::loadr(
+myloadr::myloadr(
   rlang,
   tidyverse,
   tsibble,
@@ -78,7 +78,23 @@ summary_select <- mydata %>%
   )
 
 model_data <- mydata %>% 
-  filter(id %in% pull(summary_select, id))
+  filter(id %in% summary_select$id)
+
+model_data %>% 
+  skim()
+
+model_data %>% 
+  group_by(id) %>% 
+  mutate(
+    across(
+      .cols = c(adawareness : intention),
+      ~ minmax(.x, 0, 100, .05)
+    )
+  ) %>% 
+  ungroup() %>% 
+  skim()
+
+
 
 ```
 

@@ -52,6 +52,7 @@ load("data/dm_divdata.rda")
 # Panel Selection
 
 ## Non Div Variables
+
 ```{r}
 mydata <- dm_mydata %>% 
   pull_tbl(data_df) %>% 
@@ -81,8 +82,8 @@ model_data <- mydata %>%
 
 ```
 
-
 ## Div Variables
+
 ```{r}
 div_names <- c("dayparts", "genres", "networks")
 
@@ -109,7 +110,6 @@ divdata <- map_dfr(
 ```{r}
 
 ```
-
 
 ### Moderator: Hedonic Value
 

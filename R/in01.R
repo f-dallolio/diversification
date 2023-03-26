@@ -9,20 +9,20 @@
 #' @examples
 logit <- function(x, ...){
   x <- x[!is.na(x)]
-  qlogis(x, ...)
+  qlogis(x)
 }
 
 #' @export
-inv_logit <- function(x, ...){
+inv_logit <- function(x){
   x <- x[!is.na(x)]
-  plogis(x, ...)
+  plogis(x)
 }
 
 #' @export
-minmax <- function(x, min = 1, max = 0, alpha = .05) {
-  alpha1 = 1 - alpha
+minmax <- function(x, min, max, alpha = 0) {
+  alpha1 = 1 - (alpha/2)
   x <- x[!is.na(x)]
   med <- median(x)
-  out <-  (((x - med) * alpha1) + med) / (min - max)
-  return(out, ...)
+  out <-  (((x - med) * alpha1) + med) / (max - min)
+  return(out)
 }

@@ -171,9 +171,9 @@ panel_df <- raw_df %>%
   mutate(
     across(
       c(adawareness : wordofmouth),
-      ~ minmax(x = .x , min =  0, max = 100, x100 = TRUE, alpha = .05)
+      ~ (.x - median(.x)) * 0.95 + median(.x)
     )
-  )
+  ) 
 ```
 
 Separate

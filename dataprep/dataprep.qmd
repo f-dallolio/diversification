@@ -168,14 +168,12 @@ panel_df <- raw_df %>%
     ),
     .after = catspend01
   ) %>% 
-  group_by(id) %>%
   mutate(
     across(
       c(adawareness : wordofmouth),
-      ~ minmax(x = .x, min = 0, max = 100, x100 = TRUE, alpha = 0.1)
-      )
-  ) %>%
-  ungroup()
+      ~ minmax(x = .x , min =  0, max = 100, x100 = TRUE, alpha = .05)
+    )
+  )
 ```
 
 Separate

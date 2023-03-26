@@ -14,11 +14,11 @@ Load the necessary libraries:
 #| output: false
 
 remotes::install_github("f-dallolio/fdutils")
-install.packages("DiagrammeR")
+# install.packages("DiagrammeR")
 remotes::install_github("f-dallolio/diversification")
-remotes::install_github("f-dallolio/loadr")
+remotes::install_github("f-dallolio/myloadr")
 
-loadr::loadr(
+myloadr::myloadr(
   rlang,
   tidyverse,
   tsibble,
@@ -141,14 +141,6 @@ panel_df <- raw_df %>%
     budgetshare = Share_of_budget,
     purchasefreq = Purchase_frequency
   ) %>% 
-  # mutate(
-  #   across(
-  #     .cols = c(adawareness : wordofmouth), 
-  #     .fns = ~ if_else(min(.x) == 0 | max(.x) == 100, 
-  #                      minmax(.x, min = 0, max = 100, to100 = TRUE, alpha = 0.05), 
-  #                      .x)
-  #   ) 
-  # ) %>%
   mutate(across(contains(c("num_", "hhi_", "ssd_")), ~ .x * adspend01)) %>%
   group_by(id) %>%
   mutate(
@@ -179,10 +171,11 @@ panel_df <- raw_df %>%
   group_by(id) %>%
   mutate(
     across(
-      c(adawareness : wordofmouth) ,
-      ~ minmax(.x, min = 0, max = 100, x100 = TRUE, alpha = 0.1))
-    ) %>% 
-  ungroup() 
+      c(adawareness : wordofmouth),
+      ~ minmax(x = .x, min = 0, max = 100, x100 = TRUE, alpha = 0.1)
+      )
+  ) %>%
+  ungroup()
 ```
 
 Separate

@@ -43,13 +43,18 @@ myloadr::myloadr(
   rstanarm,
   update = FALSE
 )
+
+library(parallel)
+nchains <- 2
+ncores <- 2
+nthreads <- floor(detectCores()/nchains)
 ```
 
 # Load Data
 
 ```{r}
-load("data/dm_mydata.rda")
-load("data/dm_divdata.rda")
+load("~/R_wd/r_packages/data_ec2/dm_divdata.rda")
+load("~/R_wd/r_packages/data_ec2/dm_mydata.rda")
 ```
 
 # Panel Selection
@@ -80,7 +85,7 @@ summary_select <- mydata %>%
     max_cons_ad0 <= 26
   )
 
-model_data <- mydata %>% 
+mydata <- mydata %>% 
   filter(id %in% summary_select$id)
 
 ```
@@ -100,192 +105,3454 @@ divdata <- map_dfr(
     id, 
     t, 
     variable, 
+    num,
+    hhi,
     nfx, 
     cfx,
     dfx = 1 - cfx
   )
 ```
 
+```{r}
+divdata_gen <- divdata %>% 
+  filter(variable == "genres") %>%
+  mutate(dhi = 1-hhi) %>% 
+  rename_with(.fn = ~str_c(.x, "_gen"), .cols = c(num:dhi))
+
+divdata_net <- divdata %>% 
+  filter(variable == "networks") %>%
+  mutate(dhi = 1-hhi) %>% 
+  rename_with(.fn = ~str_c(.x, "_net"), .cols = c(num:dhi))
+
+divdata_dpt <- divdata %>% 
+  filter(variable == "dayparts") %>%
+  mutate(dhi = 1-hhi) %>% 
+  rename_with(.fn = ~str_c(.x, "_dpt"), .cols = c(num:dhi))
+  
+
+xx <- mydata  %>%
+  left_join(divdata_gen, by = c("id", "t")) %>% 
+  left_join(divdata_net, by = c("id", "t")) %>% 
+  left_join(divdata_dpt, by = c("id", "t")) %>% 
+  group_by(id) %>%
+  mutate(
+    log_adawareness = log(1 + adawareness),
+    log_adawareness0 = log_adawareness - mean(log_adawareness),
+    log_impression = log(1 + impression),
+    log_impression0 = log_impression - mean(log_impression),
+    log_consideration = log(1 + consideration),
+    log_consideration0 = log_consideration - mean(log_consideration),
+    log_intention = log(1 + intention),
+    log_intention0 = log_intention - mean(log_intention),
+
+    logit_adawareness = logit(adawareness / 100),
+    logit_adawareness0 = logit_adawareness - mean(logit_adawareness),
+    logit_impression = logit(impression / 100),
+    logit_impression0 = logit_impression - mean(logit_impression),
+    logit_consideration = logit(consideration / 100),
+    logit_consideration0 = logit_consideration - mean(logit_consideration),
+    logit_intention = logit(intention / 100),
+    logit_intention0 = logit_intention - mean(logit_intention),
+
+    lag_log_adawareness = lag(log_adawareness),
+    lag_log_adawareness0 = lag(log_adawareness0),
+    lag_log_consideration = lag(log_consideration),
+    lag_log_consideration0 = lag(log_consideration0),
+    lag_log_impression = lag(log_impression),
+    lag_log_impression0 = lag(log_impression0),
+    lag_log_intention = lag(log_intention),
+    lag_log_intention0 = lag(log_intention0),
+
+    lag_logit_adawareness = lag(logit_adawareness),
+    lag_logit_adawareness0 = lag(logit_adawareness0),
+    lag_logit_impression = lag(logit_impression),
+    lag_logit_impression0 = lag(logit_impression0),
+    lag_logit_consideration = lag(logit_consideration),
+    lag_logit_consideration0 = lag(logit_consideration0),
+    lag_logit_intention = lag(logit_intention),
+    lag_logit_intention0 = lag(logit_intention0),
+
+    log_adspend = log1p(adspend) /100,
+    log_clutter = log1p(clutter) /100
+  ) %>%
+  ungroup() %>% 
+  left_join(
+    dm_mydata$cat_moderators %>% 
+      transmute(
+        category, 
+        hedonic = (hedonic - median(hedonic)) / IQR(hedonic),
+        risk = (risk - median(risk)) / IQR(risk),
+        involvement = (involvement - median(involvement)) / IQR(involvement)
+      ) 
+  ) %>% 
+  left_join(
+    dm_mydata$brand_moderators
+  ) %>% 
+  mutate(size = (size - median(size)) / IQR(size) )
+
+xx %>% summary
+```
+
+
 # Models
 
 ## Diversification: One Measure
-
-```{r}
-
-```
-
 ### Moderator: Hedonic Value
-
-```{r}
-fmls <- c(
-  # y[1] ~ 1 + lag(y[1]) ~ 1 + cx + ax + ax:dx + ax:mx + ax:dx:mx
-  diff(y[1]) ~ 1 +  cx + ax + ax:dx + ax:mx + ax:dx:mx,
-  # y[2] ~ 1 + 1lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
-  diff(y[2]) ~ 1 + lag(y[1]) + cx + ax + ax:dx + ax: mx + ax:dx:mx,
-  # y[3] ~ 1 + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
-  diff(y[3]) ~ 1 + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax: mx + ax:dx:mx,
-  # y[4] ~ 1 + lag(y[3]) + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx 
-  diff(y[4]) ~ 1 + lag(y[3]) + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
-)
-```
-
 ### Moderator: Perceived Risk
-
-```{r}
-
-```
-
 ### Moderator: Involvement
-
-```{r}
-
-```
-
 ### Moderator: Brand Size
 
-```{r}
-
-```
-
-## Diversification: Dayparts and f(Natworks, Genres)
-
-### Moderator: Hedonic Value
-
-```{r}
-fmls <- c(
-  # y[1] ~ 1 + lag(y[1]) ~ 1 + cx + ax + ax:dx + ax:mx + ax:dx:mx
-  diff(y[1]) ~ 1 +  cx + ax + ax:dx + ax:mx + ax:dx:mx,
-  # y[2] ~ 1 + 1lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
-  diff(y[2]) ~ 1 + lag(y[1]) + cx + ax + ax:dx + ax: mx + ax:dx:mx,
-  # y[3] ~ 1 + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
-  diff(y[3]) ~ 1 + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax: mx + ax:dx:mx,
-  # y[4] ~ 1 + lag(y[3]) + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx 
-  diff(y[4]) ~ 1 + lag(y[3]) + lag(y[2]) + lag(y[1]) + cx + ax + ax:dx + ax:mx + ax:dx:mx
-)
-```
-
-### Moderator: Perceived Risk
-
-```{r}
-
-```
-
-### Moderator: Involvement
-
-```{r}
-
-```
-
-### Moderator: Brand Size
-
-```{r}
-
-```
 
 ## Diversification: Dayparts and Genres
 
-```{r}
-dayparts_data <- divdata %>% 
-  filter(variable == "dayparts") %>% 
-  select(-variable) %>% 
-  rename_with(~ str_c("dayparts_", .x), .cols = c(nfx, cfx, dfx))
-
-genres_data <- divdata %>% 
-  filter(variable == "genres") %>% 
-  select(-variable) %>% 
-  rename_with(~ str_c("genres_", .x), .cols = c(nfx, cfx, dfx))
-
-tot_data <- model_data %>% 
-  inner_join(dayparts_data) %>% 
-  inner_join(genres_data) %>% 
-  rename(
-    y1 = adawareness,
-    y2 = impression,
-    y3 = consideration,
-    y4 = intention,
-    cx = clutter,
-    cax = catspend,
-    ax = adspend
-  ) %>% 
-  group_by(id) %>% 
-  mutate(
-    ax = ax / 1000,
-    cx = cx / 1000,
-  ) %>% 
-  mutate(
-    across(
-      .cols = contains(str_c("y", 1:4)),
-      .fns = list("lag" = ~ lag(.x)),
-      .names = "{.col}_{.fn}"
-    ),
-    .before = ax
-  ) %>% 
-  mutate(
-    across(
-      .cols = contains(c(str_c("y", 1:4), "ax", "cax", "cx")),
-      .fns = list("log" = ~ log1p(.x)),
-      .names = "{.fn}_{.col}"
-    ),
-    .before = ax
-  ) %>% 
-  select(-y1 : -y4, -y1_lag : -y4_lag)
-
-tot_data
-
- model_data %>% 
-  inner_join(dayparts_data) %>% 
-  inner_join(genres_data) 
- 
- 
-
-```
-
 ### Moderator: Hedonic Value
 
+#### Ad Awareness 
 ```{r}
+aaw_log0 <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_gen : hedonic +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_hedo <- brms::brm(
+  formula = aaw_log0,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
 ```
+
+#### Impression
+```{r}
+imp_log0 <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_gen : hedonic +
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_hedo
+# saveRDS(object = aaw_log0_mod_hedo, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_hedo_dayparts.rds")
+saveRDS(object = aaw_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_hedo_dpt_gen.rds")
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_hedo <- brms::brm(
+  formula = imp_log0,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+```
+
+
+#### Consideration
+```{r}
+con_log0 <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_gen : hedonic +
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_hedo
+# saveRDS(object = imp_log0_mod_hedo, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_hedo_dpt_gen.rds")
+saveRDS(object = imp_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_hedo_dpt_gen.rds")
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_hedo <- brms::brm(
+  formula = con_log0,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_hedo
+# saveRDS(con_log0_mod_hedo, "~/Dropbox/projects/Data_packages/con_log0_mod_hedo_dpt_gen.rds")
+saveRDS(object = con_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_hedo_dpt_gen.rds")
+```
+
+#### Intention
+```{r}
+int_log0 <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_gen : hedonic +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_hedo <- brms::brm(
+  formula = int_log0,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_hedo
+# saveRDS(int_log0_mod_hedo, "~/Dropbox/projects/Data_packages/int_log0_mod_hedo_dpt_gen.rds")
+saveRDS(object = int_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_hedo_dpt_gen.rds")
+```
+
 
 ### Moderator: Perceived Risk
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_risk <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_gen : risk +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_risk <- brms::brm(
+  formula = aaw_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_risk
+# saveRDS(object = aaw_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_risk_dayparts.rds")
+saveRDS(object = aaw_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_risk_dpt_gen.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_risk <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_gen : risk +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_risk <- brms::brm(
+  formula = imp_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_risk
+# saveRDS(object = imp_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_risk_dpt_gen.rds")
+saveRDS(object = imp_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_risk_dpt_gen.rds")
+```
+
+
+#### Consideration
+```{r}
+con_log0_risk <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_gen : risk +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_risk <- brms::brm(
+  formula = con_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_risk
+# saveRDS(con_log0_mod_risk, "~/Dropbox/projects/Data_packages/con_log0_mod_risk_dpt_gen.rds")
+saveRDS(object = con_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_risk_dpt_gen.rds")
+```
+
+#### Intention
+```{r}
+int_log0_risk <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_gen : risk +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_risk <- brms::brm(
+  formula = int_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_risk
+# saveRDS(int_log0_mod_risk, "~/Dropbox/projects/Data_packages/int_log0_mod_risk_dpt_gen.rds")
+saveRDS(object = int_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_risk_dpt_gen.rds")
 ```
 
 ### Moderator: Involvement
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_inv <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_gen : involvement +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_inv <- brms::brm(
+  formula = aaw_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_inv
+# saveRDS(object = aaw_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_inv_dayparts.rds")
+saveRDS(object = aaw_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_inv_dpt_gen.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_inv <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_gen : involvement +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_inv <- brms::brm(
+  formula = imp_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_inv
+# saveRDS(object = imp_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_inv_dpt_gen.rds")
+saveRDS(object = imp_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_inv_dpt_gen.rds")
+```
+
+
+#### Consideration
+```{r}
+con_log0_inv <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_gen : involvement +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_inv <- brms::brm(
+  formula = con_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_inv
+# saveRDS(con_log0_mod_inv, "~/Dropbox/projects/Data_packages/con_log0_mod_inv_dpt_gen.rds")
+saveRDS(object = con_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_inv_dpt_gen.rds")
+```
+
+#### Intention
+```{r}
+int_log0_inv <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_gen : involvement +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_inv <- brms::brm(
+  formula = int_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_inv
+# saveRDS(int_log0_mod_inv, "~/Dropbox/projects/Data_packages/int_log0_mod_inv_dpt_gen.rds")
+saveRDS(object = int_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_inv_dpt_gen.rds")
 ```
 
 ### Moderator: Brand Size
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_size <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_gen : size +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_size <- brms::brm(
+  formula = aaw_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_size
+# saveRDS(object = aaw_log0_mod_size, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_size_dayparts.rds")
+saveRDS(object = aaw_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_size_dpt_gen.rds")
 ```
+
+#### Impression
+```{r}
+imp_log0_size <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_gen : size +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_size <- brms::brm(
+  formula = imp_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_size
+# saveRDS(object = imp_log0_mod_size, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_size_dpt_gen.rds")
+saveRDS(object = imp_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_size_dpt_gen.rds")
+```
+
+
+#### Consideration
+```{r}
+con_log0_size <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_gen : size +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_size <- brms::brm(
+  formula = con_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_size
+# saveRDS(con_log0_mod_size, "~/Dropbox/projects/Data_packages/con_log0_mod_size_dpt_gen.rds")
+saveRDS(object = con_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_size_dpt_gen.rds")
+```
+
+#### Intention
+```{r}
+int_log0_size <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_gen + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_gen : size +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_size <- brms::brm(
+  formula = int_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_size
+# saveRDS(int_log0_mod_size, "~/Dropbox/projects/Data_packages/int_log0_mod_size_dpt_gen.rds")
+saveRDS(object = int_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_size_dpt_gen.rds")
+```
+
+
 
 ## Diversification: Dayparts and Natworks
 
 ### Moderator: Hedonic Value
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_hedo <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_net : hedonic +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_hedo <- brms::brm(
+  formula = aaw_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+aaw_log0_mod_hedo
+# saveRDS(object = aaw_log0_mod_hedo, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_hedo_dayparts.rds")
+saveRDS(object = aaw_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_hedo_dpt_net.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_hedo <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_net : hedonic +
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_hedo <- brms::brm(
+  formula = imp_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+imp_log0_mod_hedo
+# saveRDS(con_log0_mod_hedo, "~/Dropbox/projects/Data_packages/con_log0_mod_hedo_dpt_net.rds")
+saveRDS(object = imp_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_hedo_dpt_net.rds")
+```
+
+
+#### Consideration
+```{r}
+con_log0_hedo <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_net : hedonic +
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_hedo
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_hedo <- brms::brm(
+  formula = con_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
 
 ```
 
+#### Intention
+```{r}
+int_log0_hedo <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : hedonic +
+       log_adspend : dhi_dpt : hedonic + 
+       log_adspend : dhi_net : hedonic +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_hedo <- brms::brm(
+  formula = int_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_hedo
+# saveRDS(int_log0_mod_hedo, "~/Dropbox/projects/Data_packages/int_log0_mod_hedo_dpt_net.rds")
+saveRDS(object = int_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_hedo_dpt_net.rds")
+```
+
+
 ### Moderator: Perceived Risk
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_risk <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_net : risk +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_risk <- brms::brm(
+  formula = aaw_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_risk
+# saveRDS(object = aaw_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_risk_dayparts.rds")
+saveRDS(object = aaw_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_risk_dpt_net.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_risk <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_net : risk +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_risk <- brms::brm(
+  formula = imp_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_risk
+# saveRDS(object = imp_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_risk_dpt_net.rds")
+saveRDS(object = imp_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_risk_dpt_net.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_risk <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_net : risk +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_risk <- brms::brm(
+  formula = con_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_risk
+# saveRDS(con_log0_mod_risk, "~/Dropbox/projects/Data_packages/con_log0_mod_risk_dpt_net.rds")
+saveRDS(object = con_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_risk_dpt_net.rds")
+```
+
+#### Intention
+```{r}
+int_log0_risk <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : risk +
+       log_adspend : dhi_dpt : risk + 
+       log_adspend : dhi_net : risk +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_risk <- brms::brm(
+  formula = int_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_risk
+# saveRDS(int_log0_mod_risk, "~/Dropbox/projects/Data_packages/int_log0_mod_risk_dpt_net.rds")
+saveRDS(object = int_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_risk_dpt_net.rds")
 ```
 
 ### Moderator: Involvement
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_inv <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_net : involvement +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_inv <- brms::brm(
+  formula = aaw_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_inv
+# saveRDS(object = aaw_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_inv_dayparts.rds")
+saveRDS(object = aaw_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_inv_dpt_net.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_inv <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_net : involvement +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_inv <- brms::brm(
+  formula = imp_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_inv
+# saveRDS(object = imp_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_inv_dpt_net.rds")
+saveRDS(object = imp_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_inv_dpt_net.rds")
+```
+
+
+#### Consideration
+```{r}
+con_log0_inv <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_net : involvement +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_inv <- brms::brm(
+  formula = con_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_inv
+# saveRDS(con_log0_mod_inv, "~/Dropbox/projects/Data_packages/con_log0_mod_inv_dpt_net.rds")
+saveRDS(object = con_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_inv_dpt_net.rds")
+```
+
+#### Intention
+```{r}
+int_log0_inv <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : involvement +
+       log_adspend : dhi_dpt : involvement + 
+       log_adspend : dhi_net : involvement +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_inv <- brms::brm(
+  formula = int_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_inv
+# saveRDS(int_log0_mod_inv, "~/Dropbox/projects/Data_packages/int_log0_mod_inv_dpt_net.rds")
+saveRDS(object = int_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_inv_dpt_net.rds")
 ```
 
 ### Moderator: Brand Size
 
+#### Ad Awareness 
 ```{r}
+aaw_log0_size <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_net : size +
+       (0 + log_adspend | id))
 
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_size <- brms::brm(
+  formula = aaw_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_size
+# saveRDS(object = aaw_log0_mod_size, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_size_dayparts.rds")
+saveRDS(object = aaw_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_size_dpt_net.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_size <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_net : size +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_size <- brms::brm(
+  formula = imp_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_size
+# saveRDS(object = imp_log0_mod_size, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_size_dpt_net.rds")
+saveRDS(object = imp_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_size_dpt_net.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_size <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_net : size +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_size <- brms::brm(
+  formula = con_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_size
+# saveRDS(con_log0_mod_size, "~/Dropbox/projects/Data_packages/con_log0_mod_size_dpt_net.rds")
+saveRDS(object = con_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_size_dpt_net.rds")
+```
+
+#### Intention
+```{r}
+int_log0_size <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_dpt + 
+       log_adspend : dhi_net + 
+       log_adspend : size +
+       log_adspend : dhi_dpt : size + 
+       log_adspend : dhi_net : size +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_size <- brms::brm(
+  formula = int_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_size
+# saveRDS(int_log0_mod_size, "~/Dropbox/projects/Data_packages/int_log0_mod_size_dpt_net.rds")
+saveRDS(object = int_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_size_dpt_net.rds")
+```
+
+
+
+## Diversification: Dayparts and (Networks, Genres)
+
+### Modified Data
+
+```{r}
+divdata_ww <- divdata %>% 
+  mutate(variable2 = case_when(variable == "dayparts" ~ "when", .default = "where")) %>% 
+  group_by(id, t, variable2) %>% 
+  summarise(across(c(num : dfx), mean))
+
+divdata_when <- divdata_ww %>% 
+  filter(variable2 == "when") %>%
+  mutate(dhi = 1-hhi) %>% 
+  rename_with(.fn = ~str_c(.x, "_when"), .cols = c(num:dhi))
+
+divdata_where <- divdata_ww %>% 
+  filter(variable2 == "when") %>%
+  mutate(dhi = 1-hhi) %>% 
+  rename_with(.fn = ~str_c(.x, "_where"), .cols = c(num:dhi))
+
+xx <- xx %>% 
+  select( - matches(c("_gen", "_net", "_dpt"))) %>% 
+  left_join( divdata_when ) %>% 
+  left_join( divdata_where ) 
+  
+  
+```
+
+#### Ad Awareness 
+```{r}
+aaw_log0_hedo <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : hedonic +
+       log_adspend : dhi_when : hedonic + 
+       log_adspend : dhi_where : hedonic +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_hedo <- brms::brm(
+  formula = aaw_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+aaw_log0_mod_hedo
+# saveRDS(object = aaw_log0_mod_hedo, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_hedo_dayparts.rds")
+saveRDS(object = aaw_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_hedo_when_where.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_hedo <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : hedonic +
+       log_adspend : dhi_when : hedonic + 
+       log_adspend : dhi_where : hedonic +
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_hedo <- brms::brm(
+  formula = imp_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+imp_log0_mod_hedo
+# saveRDS(con_log0_mod_hedo, "~/Dropbox/projects/Data_packages/con_log0_mod_hedo_when_where.rds")
+saveRDS(object = imp_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_hedo_when_where.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_hedo <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : hedonic +
+       log_adspend : dhi_when : hedonic + 
+       log_adspend : dhi_where : hedonic +
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_hedo
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_hedo <- brms::brm(
+  formula = con_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_hedo
+# saveRDS(int_log0_mod_hedo, "~/Dropbox/projects/Data_packages/int_log0_mod_hedo_when_where.rds")
+saveRDS(object = con_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_hedo_when_where.rds")
+```
+
+#### Intention
+```{r}
+int_log0_hedo <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : hedonic +
+       log_adspend : dhi_when : hedonic + 
+       log_adspend : dhi_where : hedonic +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_hedo <- brms::brm(
+  formula = int_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_hedo
+# saveRDS(int_log0_mod_hedo, "~/Dropbox/projects/Data_packages/int_log0_mod_hedo_when_where.rds")
+saveRDS(object = int_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_hedo_when_where.rds")
+```
+
+
+### Moderator: Perceived Risk
+
+#### Ad Awareness 
+```{r}
+aaw_log0_risk <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : risk +
+       log_adspend : dhi_when : risk + 
+       log_adspend : dhi_where : risk +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_risk <- brms::brm(
+  formula = aaw_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_risk
+# saveRDS(object = aaw_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_risk_dayparts.rds")
+saveRDS(object = aaw_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_risk_when_where.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_risk <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : risk +
+       log_adspend : dhi_when : risk + 
+       log_adspend : dhi_where : risk +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_risk <- brms::brm(
+  formula = imp_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_risk
+# saveRDS(object = imp_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_risk_when_where.rds")
+saveRDS(object = imp_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_risk_when_where.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_risk <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : risk +
+       log_adspend : dhi_when : risk + 
+       log_adspend : dhi_where : risk +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_risk <- brms::brm(
+  formula = con_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_risk
+# saveRDS(con_log0_mod_risk, "~/Dropbox/projects/Data_packages/con_log0_mod_risk_when_where.rds")
+saveRDS(object = con_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_risk_when_where.rds")
+```
+
+#### Intention
+```{r}
+int_log0_risk <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : risk +
+       log_adspend : dhi_when : risk + 
+       log_adspend : dhi_where : risk +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_risk <- brms::brm(
+  formula = int_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_risk
+# saveRDS(int_log0_mod_risk, "~/Dropbox/projects/Data_packages/int_log0_mod_risk_when_where.rds")
+saveRDS(object = int_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_risk_when_where.rds")
+```
+
+### Moderator: Involvement
+
+#### Ad Awareness 
+```{r}
+aaw_log0_inv <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : involvement +
+       log_adspend : dhi_when : involvement + 
+       log_adspend : dhi_where : involvement +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_inv <- brms::brm(
+  formula = aaw_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_inv
+# saveRDS(object = aaw_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_inv_dayparts.rds")
+saveRDS(object = aaw_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_inv_when_where.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_inv <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : involvement +
+       log_adspend : dhi_when : involvement + 
+       log_adspend : dhi_where : involvement +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_inv <- brms::brm(
+  formula = imp_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_inv
+# saveRDS(object = imp_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_inv_when_where.rds")
+saveRDS(object = imp_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_inv_when_where.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_inv <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : involvement +
+       log_adspend : dhi_when : involvement + 
+       log_adspend : dhi_where : involvement +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_inv <- brms::brm(
+  formula = con_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_inv
+# saveRDS(con_log0_mod_inv, "~/Dropbox/projects/Data_packages/con_log0_mod_inv_when_where.rds")
+saveRDS(object = con_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_inv_when_where.rds")
+```
+
+#### Intention
+```{r}
+int_log0_inv <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : involvement +
+       log_adspend : dhi_when : involvement + 
+       log_adspend : dhi_where : involvement +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_inv <- brms::brm(
+  formula = int_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_inv
+# saveRDS(int_log0_mod_inv, "~/Dropbox/projects/Data_packages/int_log0_mod_inv_when_where.rds")
+saveRDS(object = int_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_inv_when_where.rds")
+```
+
+### Moderator: Brand Size
+
+#### Ad Awareness 
+```{r}
+aaw_log0_size <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : size +
+       log_adspend : dhi_when : size + 
+       log_adspend : dhi_where : size +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_size <- brms::brm(
+  formula = aaw_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_size
+# saveRDS(object = aaw_log0_mod_size, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_size_dayparts.rds")
+saveRDS(object = aaw_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_size_when_where.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_size <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : size +
+       log_adspend : dhi_when : size + 
+       log_adspend : dhi_where : size +
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_size <- brms::brm(
+  formula = imp_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_size
+# saveRDS(object = imp_log0_mod_size, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_size_when_where.rds")
+saveRDS(object = imp_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_size_when_where.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_size <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : size +
+       log_adspend : dhi_when : size + 
+       log_adspend : dhi_where : size +
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_size <- brms::brm(
+  formula = con_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_size
+# saveRDS(con_log0_mod_size, "~/Dropbox/projects/Data_packages/con_log0_mod_size_when_where.rds")
+saveRDS(object = con_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_size_when_where.rds")
+```
+
+#### Intention
+```{r}
+int_log0_size <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend : dhi_when + 
+       log_adspend : dhi_where + 
+       log_adspend : size +
+       log_adspend : dhi_when : size + 
+       log_adspend : dhi_where : size +
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_size <- brms::brm(
+  formula = int_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_size
+# saveRDS(int_log0_mod_size, "~/Dropbox/projects/Data_packages/int_log0_mod_size_when_where.rds")
+saveRDS(object = int_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_size_when_where.rds")
+```
+
+
+
+## Diversification: (Dayparts, Networks, and Genres)
+
+### Modified Data
+
+```{r}
+divdata_tot <-xx %>%
+  select(id, t, log_adspend) %>% 
+  left_join(divdata) %>% 
+  mutate(
+    dhi = 1 - hhi,
+    log_adspend_x_dhi = log_adspend * dhi) %>% 
+  group_by(id, t) %>% 
+  summarise(log_adspend_x_dhi = mean(log_adspend_x_dhi))
+
+xx <- xx %>% 
+  select( - matches(c("_gen", "_net", "_dpt"))) %>% 
+  left_join( divdata_tot )
+  
+xx %>% summary  
+```
+
+
+#### Ad Awareness 
+```{r}
+aaw_log0_hedo <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : hedonic +
+       log_adspend_x_dhi : hedonic + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_hedo <- brms::brm(
+  formula = aaw_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+aaw_log0_mod_hedo
+# saveRDS(object = aaw_log0_mod_hedo, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_hedo_dayparts.rds")
+saveRDS(object = aaw_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_hedo_all.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_hedo <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : hedonic +
+       log_adspend_x_dhi : hedonic + 
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_hedo <- brms::brm(
+  formula = imp_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+imp_log0_mod_hedo
+# saveRDS(con_log0_mod_hedo, "~/Dropbox/projects/Data_packages/con_log0_mod_hedo_all.rds")
+saveRDS(object = imp_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_hedo_all.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_hedo <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : hedonic +
+       log_adspend_x_dhi : hedonic + 
+       (0 + log_adspend | id))
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_hedo
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_hedo <- brms::brm(
+  formula = con_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_hedo
+# saveRDS(int_log0_mod_hedo, "~/Dropbox/projects/Data_packages/int_log0_mod_hedo_all.rds")
+saveRDS(object = con_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_hedo_all.rds")
+```
+
+#### Intention
+```{r}
+int_log0_hedo <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : hedonic +
+       log_adspend_x_dhi : hedonic + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_hedo <- brms::brm(
+  formula = int_log0_hedo,
+  data = xx,
+
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_hedo
+# saveRDS(int_log0_mod_hedo, "~/Dropbox/projects/Data_packages/int_log0_mod_hedo_all.rds")
+saveRDS(object = int_log0_mod_hedo, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_hedo_all.rds")
+```
+
+
+### Moderator: Perceived Risk
+
+#### Ad Awareness 
+```{r}
+aaw_log0_risk <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : risk +
+       log_adspend_x_dhi : risk + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_risk <- brms::brm(
+  formula = aaw_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_risk
+# saveRDS(object = aaw_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_risk_dayparts.rds")
+saveRDS(object = aaw_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_risk_all.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_risk <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : risk +
+       log_adspend_x_dhi : risk + 
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_risk <- brms::brm(
+  formula = imp_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_risk
+# saveRDS(object = imp_log0_mod_risk, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_risk_all.rds")
+saveRDS(object = imp_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_risk_all.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_risk <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : risk +
+       log_adspend_x_dhi : risk + 
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_risk <- brms::brm(
+  formula = con_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_risk
+# saveRDS(con_log0_mod_risk, "~/Dropbox/projects/Data_packages/con_log0_mod_risk_all.rds")
+saveRDS(object = con_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_risk_all.rds")
+```
+
+#### Intention
+```{r}
+int_log0_risk <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : risk +
+       log_adspend_x_dhi : risk + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_risk <- brms::brm(
+  formula = int_log0_risk,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_risk
+# saveRDS(int_log0_mod_risk, "~/Dropbox/projects/Data_packages/int_log0_mod_risk_all.rds")
+saveRDS(object = int_log0_mod_risk, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_risk_all.rds")
+```
+
+### Moderator: Involvement
+
+#### Ad Awareness 
+```{r}
+aaw_log0_inv <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : involvement +
+       log_adspend_x_dhi : involvement + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_inv <- brms::brm(
+  formula = aaw_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_inv
+# saveRDS(object = aaw_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_inv_dayparts.rds")
+saveRDS(object = aaw_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_inv_all.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_inv <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : involvement +
+       log_adspend_x_dhi : involvement + 
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_inv <- brms::brm(
+  formula = imp_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_inv
+# saveRDS(object = imp_log0_mod_inv, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_inv_all.rds")
+saveRDS(object = imp_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_inv_all.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_inv <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : involvement +
+       log_adspend_x_dhi : involvement + 
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_inv <- brms::brm(
+  formula = con_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_inv
+# saveRDS(con_log0_mod_inv, "~/Dropbox/projects/Data_packages/con_log0_mod_inv_all.rds")
+saveRDS(object = con_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_inv_all.rds")
+```
+
+#### Intention
+```{r}
+int_log0_inv <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : involvement +
+       log_adspend_x_dhi : involvement + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_inv <- brms::brm(
+  formula = int_log0_inv,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_inv
+# saveRDS(int_log0_mod_inv, "~/Dropbox/projects/Data_packages/int_log0_mod_inv_all.rds")
+saveRDS(object = int_log0_mod_inv, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_inv_all.rds")
+```
+
+### Moderator: Brand Size
+
+#### Ad Awareness 
+```{r}
+aaw_log0_size <- bf(log_adawareness0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_adawareness0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 + 
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : size +
+       log_adspend_x_dhi : size + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+aaw_log0_mod_size <- brms::brm(
+  formula = aaw_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+aaw_log0_mod_size
+# saveRDS(object = aaw_log0_mod_size, file = "~/Dropbox/projects/Data_packages/aaw_log0_mod_size_dayparts.rds")
+saveRDS(object = aaw_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/aaw_log0_mod_size_all.rds")
+```
+
+#### Impression
+```{r}
+imp_log0_size <- bf(log_impression0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_impression0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : size +
+       log_adspend_x_dhi : size + 
+       (0 + log_adspend | id))
+
+
+t0 <- lubridate::now()
+print(t0)
+imp_log0_mod_size <- brms::brm(
+  formula = imp_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+imp_log0_mod_size
+# saveRDS(object = imp_log0_mod_size, file = "~/Dropbox/projects/Data_packages/imp_log0_mod_size_all.rds")
+saveRDS(object = imp_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/imp_log0_mod_size_all.rds")
+```
+
+#### Consideration
+```{r}
+con_log0_size <- bf(log_consideration0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_consideration0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : size +
+       log_adspend_x_dhi : size + 
+       (0 + log_adspend | id))
+
+
+
+t0 <- lubridate::now()
+print(t0)
+con_log0_mod_size <- brms::brm(
+  formula = con_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+con_log0_mod_size
+# saveRDS(con_log0_mod_size, "~/Dropbox/projects/Data_packages/con_log0_mod_size_all.rds")
+saveRDS(object = con_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/con_log0_mod_size_all.rds")
+```
+
+#### Intention
+```{r}
+int_log0_size <- bf(log_intention0 ~ 0 +
+                 pgamma +
+                 inv_logit(pdelta) * (lag_log_intention0 - pgamma) +
+                 f2,
+               pgamma ~ 1 + 1 | id,
+               pdelta ~ 1 + 1 | id,
+               nl = TRUE,
+               center = TRUE) +
+  lf(f2 ~ 0 +
+       lag_log_consideration0 +
+       lag_log_impression0 +
+       lag_log_adawareness0 +
+       log_clutter +
+       log_adspend +
+       log_adspend_x_dhi + 
+       log_adspend : size +
+       log_adspend_x_dhi : size + 
+       (0 + log_adspend | id))
+
+t0 <- lubridate::now()
+print(t0)
+int_log0_mod_size <- brms::brm(
+  formula = int_log0_size,
+  data = xx,
+  backend = "cmdstanr",
+  threads = nthreads,
+  cores = ncores,
+  chains = nchains,
+  init = 0,
+  refresh = 25,
+  prior = c(
+    prior(normal(0, 1), class = "b", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "sd", nlpar = "pgamma"),
+    prior(normal(0, 1), class = "b", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "sd", nlpar = "pdelta"),
+    prior(normal(0, 1), class = "b", nlpar = "f2"),
+    prior(normal(0, 1), class = "sd", nlpar = "f2"),
+    prior(normal(0, 0.5), class = "sigma")
+  )
+)
+
+t1 <- lubridate::now()
+print(t1-t0)
+int_log0_mod_size
+# saveRDS(int_log0_mod_size, "~/Dropbox/projects/Data_packages/int_log0_mod_size_all.rds")
+saveRDS(object = int_log0_mod_size, file = "~/R_wd/r_packages/results_ec2/int_log0_mod_size_all.rds")
 ```
